@@ -16,7 +16,7 @@ from torch.utils.data import DataLoader, random_split
 
 from config import Config
 from model import Seq2SeqASR
-from dataset import JavaneseASRDataset  
+from dataset import JavaneseASRDataset, collate_fn  
 from vocab import Vocabulary
 from features import LogMelFeatureExtractor
 from metrics import compute_batch_cer
@@ -153,7 +153,7 @@ class ExperimentRunner:
             train_dataset,
             batch_size=config.batch_size,
             shuffle=True,
-            collate_fn=full_dataset.collate_fn,
+            collate_fn=collate_fn,
             num_workers=0
         )
         
@@ -161,7 +161,7 @@ class ExperimentRunner:
             val_dataset,
             batch_size=config.batch_size,
             shuffle=False,
-            collate_fn=full_dataset.collate_fn,
+            collate_fn=collate_fn,
             num_workers=0
         )
         
