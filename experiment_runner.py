@@ -286,12 +286,37 @@ class ExperimentRunner:
             
             print(f"   Epoch {epoch}: Train Loss={train_loss:.4f}, Val CER={val_cer:.4f}, Val WER={val_wer:.4f}")
             
-            # Track best model
+            # Track best model and save checkpoint
             if val_cer < best_val_cer:
                 best_val_cer = val_cer
                 print(f"   ⭐ New best CER: {best_val_cer:.4f}")
+                
+                # Save best model checkpoint
+                checkpoint_dir = Path("experiment_checkpoints")
+                checkpoint_dir.mkdir(exist_ok=True)
+                
+                # Create safe filename from experiment name
+                safe_name = experiment_name.replace(" ", "_").replace("(", "").replace(")", "").replace(":", "").replace(",", "")
+                checkpoint_path = checkpoint_dir / f"{safe_name}_best.pt"
+                
+                checkpoint = {
+                    'epoch': epoch,
+                    'model_state_dict': model.state_dict(),
+                    'optimizer_state_dict': optimizer.state_dict(),
+                    'best_val_cer': best_val_cer,
+                    'val_loss': val_loss,
+                    'config': config_overrides,
+                    'experiment_name': experiment_name
+                }
+                
+                torch.save(checkpoint, checkpoint_path)
+                print(f"   💾 Saved best model to: {checkpoint_path}")
         
         training_time = time.time() - start_time
+        
+        # Build checkpoint path
+        safe_name = experiment_name.replace(" ", "_").replace("(", "").replace(")", "").replace(":", "").replace(",", "")
+        checkpoint_path = Path("experiment_checkpoints") / f"{safe_name}_best.pt"
         
         # Compile results
         results = {
@@ -305,7 +330,8 @@ class ExperimentRunner:
             "val_cer": val_cers[-1],  # For tracker sorting
             "val_wer": val_wers[-1],
             "training_time_seconds": training_time,
-            "num_parameters": num_params
+            "num_parameters": num_params,
+            "checkpoint_path": str(checkpoint_path)  # Save path to best model
         }
         
         # Save experiment
@@ -400,7 +426,7 @@ def define_experiments() -> List[Dict[str, Any]]:
         "config": {
             "use_ctc": False,
             "num_epochs": 100,
-            "beam_size": 3,
+            "beam_size": 1,
             "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
             "batch_size": 64  # 🚀 Optimized
         }
@@ -412,7 +438,7 @@ def define_experiments() -> List[Dict[str, Any]]:
         "config": {
             "use_ctc": False,
             "num_epochs": 100,
-            "beam_size": 5,
+            "beam_size": 1,
             "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
             "batch_size": 64  # 🚀 Optimized
         }
@@ -425,7 +451,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "use_ctc": True,
             "ctc_weight": 0.3,
             "num_epochs": 100,
-            "beam_size": 5,
+            "beam_size": 1,
             "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
             "batch_size": 64  # 🚀 Optimized
         }
@@ -474,7 +500,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "use_ctc": True,
             "ctc_weight": 0.3,
             "num_epochs": 200,
-            "beam_size": 5,
+            "beam_size": 1,
             "learning_rate": 2e-4,  # 🚀 Lower LR for very long training (200 epochs)
             "batch_size": 64  # 🚀 Optimized from 8
         }
