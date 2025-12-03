@@ -12,6 +12,7 @@ from dataclasses import asdict, replace
 from typing import Dict, List, Any
 import torch
 from torch.utils.data import DataLoader, random_split
+from torch.cuda.amp import GradScaler  # 🚀 For Mixed Precision Training
 
 
 from config import Config
@@ -227,6 +228,12 @@ class ExperimentRunner:
         # Optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=current_config.learning_rate)
         
+        # 🚀 Setup Mixed Precision Training (AMP)
+        use_amp = getattr(current_config, 'use_amp', False) and current_config.device == 'cuda'
+        scaler = GradScaler() if use_amp else None
+        if use_amp:
+            print(f"   🚀 Mixed Precision (AMP) enabled - Training will be 2x faster!")
+        
         # Training
         print(f"\n🏃 Training for {current_config.num_epochs} epochs...")
         start_time = time.time()
@@ -246,7 +253,9 @@ class ExperimentRunner:
                 vocab=vocab,
                 device=current_config.device,
                 epoch=epoch,
-                grad_clip_norm=current_config.grad_clip_norm
+                grad_clip_norm=current_config.grad_clip_norm,
+                scaler=scaler,  # 🚀 Pass scaler for AMP
+                use_amp=use_amp  # 🚀 Enable AMP if configured
             )
             train_losses.append(train_loss)
             
@@ -331,102 +340,102 @@ def define_experiments() -> List[Dict[str, Any]]:
     """
     experiments = []
     
-    # 1. Baseline (small training for quick iteration)
+    # 1. Baseline (50 epochs with adapted LR)
     experiments.append({
-        "name": "Baseline (No CTC, 5 epochs)",
+        "name": "Baseline (No CTC, 50 epochs)",
         "config": {
             "use_ctc": False,
-            "num_epochs": 5,
+            "num_epochs": 50,
             "beam_size": 1,  # Greedy decoding
-            "learning_rate": 1e-3,
+            "learning_rate": 5e-4,  # 🚀 Adapted for longer training (was 1e-3)
             "batch_size": 64  # 🚀 Optimized from 8
         }
     })
     
-    # 2. Add CTC
+    # 2. Add CTC (50 epochs)
     experiments.append({
-        "name": "With CTC (ctc_weight=0.3)",
+        "name": "With CTC (ctc_weight=0.3, 50 epochs)",
         "config": {
             "use_ctc": True,
             "ctc_weight": 0.3,
-            "num_epochs": 5,
+            "num_epochs": 50,
             "beam_size": 1,
-            "learning_rate": 1e-3,
+            "learning_rate": 5e-4,  # 🚀 Adapted for longer training
             "batch_size": 64  # 🚀 Optimized from 8
         }
     })
     
-    # 3. Different CTC weight
+    # 3. Different CTC weight (50 epochs)
     experiments.append({
-        "name": "With CTC (ctc_weight=0.5)",
+        "name": "With CTC (ctc_weight=0.5, 50 epochs)",
         "config": {
             "use_ctc": True,
             "ctc_weight": 0.5,
-            "num_epochs": 5,
+            "num_epochs": 50,
             "beam_size": 1,
-            "learning_rate": 1e-3,
+            "learning_rate": 5e-4,  # 🚀 Adapted for longer training
             "batch_size": 64  # 🚀 Optimized from 8
         }
     })
     
-    # 4. More epochs (baseline)
+    # 4. Longer training (baseline, 100 epochs)
     experiments.append({
-        "name": "Baseline with 10 epochs",
+        "name": "Baseline with 100 epochs",
         "config": {
             "use_ctc": False,
-            "num_epochs": 10,
+            "num_epochs": 100,
             "beam_size": 1,
-            "learning_rate": 1e-3,
+            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs (lower LR)
             "batch_size": 64  # 🚀 Optimized
         }
     })
     
-    # 5. More epochs with CTC
+    # 5. CTC with longer training (100 epochs)
     experiments.append({
-        "name": "CTC with 10 epochs",
+        "name": "CTC with 100 epochs",
         "config": {
             "use_ctc": True,
             "ctc_weight": 0.3,
-            "num_epochs": 10,
+            "num_epochs": 100,
             "beam_size": 1,
-            "learning_rate": 1e-3,
+            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
             "batch_size": 64  # 🚀 Optimized
         }
     })
     
-    # 6. Beam search (beam=3)
+    # 6. Beam search (beam=3, 100 epochs)
     experiments.append({
-        "name": "Baseline + Beam Search (beam=3)",
+        "name": "Baseline + Beam Search (beam=3, 100 epochs)",
         "config": {
             "use_ctc": False,
-            "num_epochs": 10,
+            "num_epochs": 100,
             "beam_size": 3,
-            "learning_rate": 1e-3,
+            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
             "batch_size": 64  # 🚀 Optimized
         }
     })
     
-    # 7. Beam search (beam=5)
+    # 7. Beam search (beam=5, 100 epochs)
     experiments.append({
-        "name": "Baseline + Beam Search (beam=5)",
+        "name": "Baseline + Beam Search (beam=5, 100 epochs)",
         "config": {
             "use_ctc": False,
-            "num_epochs": 10,
+            "num_epochs": 100,
             "beam_size": 5,
-            "learning_rate": 1e-3,
+            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
             "batch_size": 64  # 🚀 Optimized
         }
     })
     
-    # 8. CTC + Beam search
+    # 8. CTC + Beam search (100 epochs)
     experiments.append({
-        "name": "CTC + Beam Search (beam=5)",
+        "name": "CTC + Beam Search (beam=5, 100 epochs)",
         "config": {
             "use_ctc": True,
             "ctc_weight": 0.3,
-            "num_epochs": 10,
+            "num_epochs": 100,
             "beam_size": 5,
-            "learning_rate": 1e-3,
+            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
             "batch_size": 64  # 🚀 Optimized
         }
     })
@@ -436,7 +445,7 @@ def define_experiments() -> List[Dict[str, Any]]:
         "name": "Lower LR (5e-4)",
         "config": {
             "use_ctc": False,
-            "num_epochs": 10,
+            "num_epochs": 100,
             "beam_size": 1,
             "learning_rate": 5e-4,
             "batch_size": 64  # 🚀 Optimized
@@ -448,34 +457,34 @@ def define_experiments() -> List[Dict[str, Any]]:
         "name": "Higher LR (3e-3)",
         "config": {
             "use_ctc": False,
-            "num_epochs": 10,
+            "num_epochs": 100,
             "beam_size": 1,
             "learning_rate": 3e-3,
             "batch_size": 64  # 🚀 Optimized
         }
     })
     
-    # 11. Larger batch size
+    # 11. Even larger batch size (100 epochs)
     experiments.append({
-        "name": "Even Larger batch (96)",
+        "name": "Even Larger batch (96, 100 epochs)",
         "config": {
             "use_ctc": False,
-            "num_epochs": 10,
+            "num_epochs": 100,
             "beam_size": 1,
-            "learning_rate": 1e-3,
+            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
             "batch_size": 96  # 🚀 Test even larger
         }
     })
     
-    # 12. Best combination so far (you might want to adjust based on results)
+    # 12. Best combination (200 epochs for maximum performance)
     experiments.append({
-        "name": "Best Combo: CTC + Beam + 20 epochs",
+        "name": "Best Combo: CTC + Beam + 200 epochs",
         "config": {
             "use_ctc": True,
             "ctc_weight": 0.3,
-            "num_epochs": 20,
+            "num_epochs": 200,
             "beam_size": 5,
-            "learning_rate": 1e-3,
+            "learning_rate": 2e-4,  # 🚀 Lower LR for very long training (200 epochs)
             "batch_size": 64  # 🚀 Optimized from 8
         }
     })
