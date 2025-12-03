@@ -1,3 +1,5 @@
-.venv
-checkpoints
-audio_input
+.venv/
+checkpoints/
+audio_input/
+__pycache__/
+experiment_checkpoints/
