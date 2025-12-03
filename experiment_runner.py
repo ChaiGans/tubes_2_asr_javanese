@@ -259,13 +259,15 @@ class ExperimentRunner:
                     model=model,
                     vocab=vocab,
                     beam_size=current_config.beam_size,
-                    max_len=current_config.max_decode_len
+                    max_len=current_config.max_decode_len,
+                    device=current_config.device  # ✅ Add device parameter
                 )
             else:
                 decoder = GreedyDecoder(
                     model=model,
                     vocab=vocab,
-                    max_len=current_config.max_decode_len
+                    max_len=current_config.max_decode_len,
+                    device=current_config.device  # ✅ Add device parameter
                 )
             
             val_loss, val_cer = validate(
