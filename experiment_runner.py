@@ -339,7 +339,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 5,
             "beam_size": 1,  # Greedy decoding
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized from 8
         }
     })
     
@@ -352,7 +352,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 5,
             "beam_size": 1,
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized from 8
         }
     })
     
@@ -365,7 +365,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 5,
             "beam_size": 1,
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized from 8
         }
     })
     
@@ -377,7 +377,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 10,
             "beam_size": 1,
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized
         }
     })
     
@@ -390,7 +390,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 10,
             "beam_size": 1,
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized
         }
     })
     
@@ -402,7 +402,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 10,
             "beam_size": 3,
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized
         }
     })
     
@@ -414,7 +414,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 10,
             "beam_size": 5,
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized
         }
     })
     
@@ -427,7 +427,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 10,
             "beam_size": 5,
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized
         }
     })
     
@@ -439,7 +439,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 10,
             "beam_size": 1,
             "learning_rate": 5e-4,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized
         }
     })
     
@@ -451,19 +451,19 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 10,
             "beam_size": 1,
             "learning_rate": 3e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized
         }
     })
     
     # 11. Larger batch size
     experiments.append({
-        "name": "Larger batch (16)",
+        "name": "Even Larger batch (96)",
         "config": {
             "use_ctc": False,
             "num_epochs": 10,
             "beam_size": 1,
             "learning_rate": 1e-3,
-            "batch_size": 16
+            "batch_size": 96  # 🚀 Test even larger
         }
     })
     
@@ -476,7 +476,7 @@ def define_experiments() -> List[Dict[str, Any]]:
             "num_epochs": 20,
             "beam_size": 5,
             "learning_rate": 1e-3,
-            "batch_size": 8
+            "batch_size": 64  # 🚀 Optimized from 8
         }
     })
     
