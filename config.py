@@ -14,20 +14,20 @@ class Config:
     transcript_file: str = "transcripts.csv"
     vocab_path: str = "vocab.json"
     
-    # Training
-    batch_size: int = 8
+    # Training - 🚀 OPTIMIZED FOR GPU
+    batch_size: int = 64  # 🚀 Increased from 8 (8x more GPU work!)
     num_epochs: int = 2
     learning_rate: float = 1e-3
     grad_clip_norm: float = 5.0
     teacher_forcing_ratio: float = 1.0
     
-    # Model architecture
+    # Model architecture - 🚀 LARGER FOR MORE GPU UTILIZATION
     input_dim: int = 80  # Log-mel features
-    encoder_hidden_size: int = 128
+    encoder_hidden_size: int = 256  # 🚀 Increased from 128 (2x)
     encoder_num_layers: int = 3
-    decoder_dim: int = 256
-    attention_dim: int = 128
-    embedding_dim: int = 64
+    decoder_dim: int = 512  # 🚀 Increased from 256 (2x)
+    attention_dim: int = 256  # 🚀 Increased from 128 (2x)
+    embedding_dim: int = 128  # 🚀 Increased from 64 (2x)
     dropout: float = 0.3
     
     # CTC settings
@@ -62,6 +62,13 @@ class Config:
     
     # Random seed
     seed: int = 42
+    
+    # 🚀 GPU Optimization Parameters (NEW!)
+    num_workers: int = 6  # Parallel data loading (was 0)
+    pin_memory: bool = True  # Faster CPU→GPU transfers
+    prefetch_factor: int = 2  # Prefetch batches ahead
+    persistent_workers: bool = True  # Reuse worker processes
+    use_amp: bool = True  # Automatic Mixed Precision (FP16)
 
 
 if __name__ == "__main__":

@@ -5,6 +5,7 @@ Training script for Javanese ASR with LAS-style seq2seq model
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader, random_split
+from torch.cuda.amp import autocast, GradScaler  # 🚀 For Mixed Precision
 from pathlib import Path
 import time
 from tqdm import tqdm
@@ -26,7 +27,9 @@ def train_one_epoch(
     vocab: Vocabulary,
     device: str,
     epoch: int,
-    grad_clip_norm: float = 5.0
+    grad_clip_norm: float = 5.0,
+    scaler: GradScaler = None,  # 🚀 For Mixed Precision
+    use_amp: bool = False  # 🚀 Enable/disable AMP
 ) -> float:
     """
     Train for one epoch.
@@ -46,31 +49,62 @@ def train_one_epoch(
         targets = batch['targets'].to(device)
         target_lengths = batch['target_lengths'].to(device)
         
-        # Forward pass
-        attention_logits, ctc_logits = model(features, feature_lengths, targets, target_lengths)
-        
-        # Compute encoder lengths (after pyramidal reduction)
-        encoder_lengths = feature_lengths // 4  # Approximate reduction factor
-        
-        # Compute loss
-        loss = model.compute_loss(
-            attention_logits=attention_logits,
-            targets=targets,
-            target_lengths=target_lengths,
-            ctc_logits=ctc_logits,
-            encoder_lengths=encoder_lengths,
-            pad_idx=vocab.pad_idx,
-            blank_idx=vocab.blank_idx
-        )
-        
-        # Backward pass
-        optimizer.zero_grad()
-        loss.backward()
-        
-        # Gradient clipping
-        torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
-        
-        optimizer.step()
+        # Forward pass - 🚀 Use AMP if enabled
+        if use_amp and scaler is not None:
+            with autocast():
+                attention_logits, ctc_logits = model(features, feature_lengths, targets, target_lengths)
+                
+                # Compute encoder lengths (after pyramidal reduction)
+                encoder_lengths = feature_lengths // 4  # Approximate reduction factor
+                
+                # Compute loss
+                loss = model.compute_loss(
+                    attention_logits=attention_logits,
+                    targets=targets,
+                    target_lengths=target_lengths,
+                    ctc_logits=ctc_logits,
+                    encoder_lengths=encoder_lengths,
+                    pad_idx=vocab.pad_idx,
+                    blank_idx=vocab.blank_idx
+                )
+            
+            # Backward pass with gradient scaling
+            optimizer.zero_grad()
+            scaler.scale(loss).backward()
+            
+            # Gradient clipping (unscale first for AMP)
+            scaler.unscale_(optimizer)
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
+            
+            # Optimizer step with scaler
+            scaler.step(optimizer)
+            scaler.update()
+        else:
+            # Standard FP32 training
+            attention_logits, ctc_logits = model(features, feature_lengths, targets, target_lengths)
+            
+            # Compute encoder lengths (after pyramidal reduction)
+            encoder_lengths = feature_lengths // 4  # Approximate reduction factor
+            
+            # Compute loss
+            loss = model.compute_loss(
+                attention_logits=attention_logits,
+                targets=targets,
+                target_lengths=target_lengths,
+                ctc_logits=ctc_logits,
+                encoder_lengths=encoder_lengths,
+                pad_idx=vocab.pad_idx,
+                blank_idx=vocab.blank_idx
+            )
+            
+            # Backward pass
+            optimizer.zero_grad()
+            loss.backward()
+            
+            # Gradient clipping
+            torch.nn.utils.clip_grad_norm_(model.parameters(), grad_clip_norm)
+            
+            optimizer.step()
         
         # Track loss
         total_loss += loss.item()
@@ -238,6 +272,12 @@ def main():
     checkpoint_dir = Path(cfg.checkpoint_dir)
     checkpoint_dir.mkdir(parents=True, exist_ok=True)
     
+    # 🚀 Setup Mixed Precision Training
+    use_amp = getattr(cfg, 'use_amp', False) and device.type == 'cuda'
+    scaler = GradScaler() if use_amp else None
+    if use_amp:
+        print("🚀 Mixed Precision (AMP) enabled!")
+    
     # Training loop
     print(f"\n=== Starting Training for {cfg.num_epochs} epochs ===\n")
     best_val_cer = float('inf')
@@ -247,7 +287,8 @@ def main():
         
         # Train
         train_loss = train_one_epoch(
-            model, train_loader, optimizer, vocab, device, epoch, cfg.grad_clip_norm
+            model, train_loader, optimizer, vocab, device, epoch, cfg.grad_clip_norm,
+            scaler=scaler, use_amp=use_amp  # 🚀 Pass AMP parameters
         )
         
         # Validate

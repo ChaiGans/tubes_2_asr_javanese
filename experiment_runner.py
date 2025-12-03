@@ -148,13 +148,16 @@ class ExperimentRunner:
             generator=torch.Generator().manual_seed(config.seed)
         )
         
-        # Create data loaders
+        # Create data loaders - 🚀 GPU OPTIMIZED
         train_loader = DataLoader(
             train_dataset,
             batch_size=config.batch_size,
             shuffle=True,
             collate_fn=collate_fn,
-            num_workers=0
+            num_workers=getattr(config, 'num_workers', 6),  # 🚀 Parallel data loading
+            pin_memory=getattr(config, 'pin_memory', True),  # 🚀 Faster CPU→GPU transfers
+            prefetch_factor=getattr(config, 'prefetch_factor', 2) if getattr(config, 'num_workers', 0) > 0 else None,
+            persistent_workers=getattr(config, 'persistent_workers', True) if getattr(config, 'num_workers', 0) > 0 else False
         )
         
         val_loader = DataLoader(
@@ -162,7 +165,10 @@ class ExperimentRunner:
             batch_size=config.batch_size,
             shuffle=False,
             collate_fn=collate_fn,
-            num_workers=0
+            num_workers=getattr(config, 'num_workers', 6),  # 🚀 Parallel data loading
+            pin_memory=getattr(config, 'pin_memory', True),  # 🚀 Faster CPU→GPU transfers
+            prefetch_factor=getattr(config, 'prefetch_factor', 2) if getattr(config, 'num_workers', 0) > 0 else None,
+            persistent_workers=getattr(config, 'persistent_workers', True) if getattr(config, 'num_workers', 0) > 0 else False
         )
         
         return vocab, train_loader, val_loader
