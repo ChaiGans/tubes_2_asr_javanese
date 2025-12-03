@@ -68,8 +68,6 @@ class Config:
     pin_memory: bool = True  # Faster CPU→GPU transfers
     prefetch_factor: int = 2  # Prefetch batches ahead
     persistent_workers: bool = True  # Reuse worker processes
-    use_amp: bool = True  # Automatic Mixed Precision (FP16)
-
 
 if __name__ == "__main__":
     cfg = Config()

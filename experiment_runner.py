@@ -12,7 +12,6 @@ from dataclasses import asdict, replace
 from typing import Dict, List, Any
 import torch
 from torch.utils.data import DataLoader, random_split
-from torch.cuda.amp import GradScaler  # 🚀 For Mixed Precision Training
 
 
 from config import Config
@@ -228,12 +227,6 @@ class ExperimentRunner:
         # Optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=current_config.learning_rate)
         
-        # 🚀 Setup Mixed Precision Training (AMP)
-        use_amp = getattr(current_config, 'use_amp', False) and current_config.device == 'cuda'
-        scaler = GradScaler() if use_amp else None
-        if use_amp:
-            print(f"   🚀 Mixed Precision (AMP) enabled - Training will be 2x faster!")
-        
         # Training
         print(f"\n🏃 Training for {current_config.num_epochs} epochs...")
         start_time = time.time()
@@ -254,8 +247,6 @@ class ExperimentRunner:
                 device=current_config.device,
                 epoch=epoch,
                 grad_clip_norm=current_config.grad_clip_norm,
-                scaler=scaler,  # 🚀 Pass scaler for AMP
-                use_amp=use_amp  # 🚀 Enable AMP if configured
             )
             train_losses.append(train_loss)
             
