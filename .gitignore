@@ -1,5 +1,38 @@
+# Virtual environments
 .venv/
-checkpoints/
-audio_input/
+venv/
+env/
+
+# Python cache/artifacts
 __pycache__/
+*.py[cod]
+*.pyo
+*.pyd
+.mypy_cache/
+.pytest_cache/
+.cache/
+
+# Build/distribution
+build/
+dist/
+*.egg-info/
+.eggs/
+
+# IDE/editor
+.vscode/
+.idea/
+*.swp
+*.swo
+.DS_Store
+.ipynb_checkpoints/
+
+# Model/data artifacts
+checkpoints/
 experiment_checkpoints/
+experiment_results/
+audio_input/
+*.pt
+*.pth
+*.ckpt
+*.bin
+my_results.json
