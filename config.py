@@ -50,7 +50,7 @@ class Config:
     val_every_n_steps: int = 500
     
     # Checkpointing
-    checkpoint_dir: str = "results/checkpoints"
+    checkpoint_dir: str = "checkpoints"
     save_every_n_epochs: int = 1
     
     # Decoding

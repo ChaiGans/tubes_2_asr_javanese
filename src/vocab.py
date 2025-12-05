@@ -5,7 +5,6 @@ Character-level Vocabulary for Javanese ASR
 import json
 from typing import List, Dict, Optional
 from pathlib import Path
-from .text_preprocessor import TextPreprocessor
 
 
 class Vocabulary:
@@ -160,59 +159,36 @@ class Vocabulary:
         return vocab
 
 
-def build_vocab_from_file(
-    transcript_file: str, 
-    save_path: Optional[str] = None,
-    preprocessor: Optional[TextPreprocessor] = None,
-    use_preprocessing: bool = True
-) -> Vocabulary:
+def build_vocab_from_file(transcript_file: str, save_path: Optional[str] = None) -> Vocabulary:
     """
     Build vocabulary from transcript file.
     
-    Expected format: CSV with columns "SentenceID,Transcript,Device"
+    Expected format: each line is "SentenceID<tab>Transcript"
     
     Args:
         transcript_file: Path to transcript file
         save_path: Optional path to save vocabulary JSON
-        preprocessor: Optional TextPreprocessor instance. If None and use_preprocessing is True,
-                     a default preprocessor will be created
-        use_preprocessing: Whether to apply text preprocessing (default: True)
     
     Returns:
         Vocabulary object
     """
     transcripts = []
-    
-    # Create default preprocessor if needed
-    if use_preprocessing and preprocessor is None:
-        preprocessor = TextPreprocessor(seed=42, ampersand_replacement='random')
-        print("Using default TextPreprocessor (seed=42, ampersand='random')")
 
-    print(f"Reading transcripts from {transcript_file}")
+    print("trasncript_file", transcript_file)
     
     with open(transcript_file, 'r', encoding='utf-8') as f:
-        # Skip header line
-        next(f, None)
-        
         for line in f:
             line = line.strip()
             if not line:
                 continue
             
-            # Split by comma (CSV format)
+            # Split by tab
             parts = line.split(',')
             if len(parts) >= 2:
                 transcript = parts[1].strip()
-                
-                # Apply preprocessing if enabled
-                if use_preprocessing and preprocessor:
-                    transcript = preprocessor.preprocess(transcript)
-                
                 transcripts.append(transcript)
     
     print(f"Read {len(transcripts)} transcripts from {transcript_file}")
-    if use_preprocessing:
-        print(f"Applied text preprocessing: lowercase, punctuation removal, & → la/dan")
     
     # Build vocabulary
     vocab = Vocabulary()
