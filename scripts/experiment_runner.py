@@ -304,95 +304,109 @@ class ExperimentRunner:
         return avg_loss, cer, all_preds, all_refs
 
 
-def define_experiments() -> List[Dict[str, Any]]:
-    experiments = []
+def load_experiments_from_json(json_path: str) -> List[Dict[str, Any]]:
+    """Load experiment definitions from a JSON file."""
+    with open(json_path, 'r', encoding='utf-8') as f:
+        data = json.load(f)
     
-    # S01: Baseline (Char, Pyramidal, LSTM)
-    experiments.append({
-        "name": "S01: Baseline (Char, Pyr, LSTM)",
-        "config": {
-            "token_type": "char",
-            "encoder_type": "pyramidal",
-            "decoder_type": "lstm",
-            "learning_rate": 5e-4,
-            "num_epochs": 100
-        }
-    })
+    print(f"📋 Loaded experiment config: {data.get('name', 'Unknown')}")
+    if 'description' in data:
+        print(f"   {data['description']}")
     
-    # S02: Word Vocab Feasibility
-    experiments.append({
-        "name": "S02: Word Vocab (Word, Pyr, LSTM)",
-        "config": {
-            "token_type": "word",
-            "encoder_type": "pyramidal",
-            "decoder_type": "lstm",
-            "learning_rate": 5e-4,
-            "num_epochs": 100
-        }
-    })
-    
-    # S03: Standard Encoder (No Time Reduction)
-    experiments.append({
-        "name": "S03: Standard Enc (Char, Std, LSTM)",
-        "config": {
-            "token_type": "char",
-            "encoder_type": "standard",
-            "decoder_type": "lstm",
-            "learning_rate": 5e-4,
-            "num_epochs": 100
-        }
-    })
-    
-    # S04: GRU Decoder
-    experiments.append({
-        "name": "S04: GRU Decoder (Char, Pyr, GRU)",
-        "config": {
-            "token_type": "char",
-            "encoder_type": "pyramidal",
-            "decoder_type": "gru",
-            "learning_rate": 5e-4,
-            "num_epochs": 100
-        }
-    })
-    
-    # S05: High LR
-    experiments.append({
-        "name": "S05: High LR (1e-3)",
-        "config": {
-            "token_type": "char",
-            "encoder_type": "pyramidal",
-            "decoder_type": "lstm",
-            "learning_rate": 1e-3,
-            "num_epochs": 100
-        }
-    })
-    
-    # S06: Low LR
-    experiments.append({
-        "name": "S06: Low LR (1e-4)",
-        "config": {
-            "token_type": "char",
-            "encoder_type": "pyramidal",
-            "decoder_type": "lstm",
-            "learning_rate": 1e-4,
-            "num_epochs": 100
-        }
-    })
-    
-    return experiments
+    return data.get('experiments', [])
+
+
+def config_matches(config1: Dict[str, Any], config2: Dict[str, Any]) -> bool:
+    """Check if two experiment configs are equivalent."""
+    # Compare key config parameters
+    keys_to_compare = ['token_type', 'encoder_type', 'decoder_type', 'learning_rate', 'num_epochs']
+    for key in keys_to_compare:
+        if config1.get(key) != config2.get(key):
+            return False
+    return True
 
 
 def main():
+    import argparse
+    
+    parser = argparse.ArgumentParser(description='Run ASR experiments from JSON config')
+    parser.add_argument('--config', '-c', type=str, default='experiments/scratch_experiments_v1.json',
+                        help='Path to experiment configuration JSON file')
+    parser.add_argument('--skip-existing', '-s', action='store_true',
+                        help='Skip experiments that have already been run with same config')
+    parser.add_argument('--list', '-l', action='store_true',
+                        help='List experiments without running them')
+    parser.add_argument('--only', '-o', type=str, nargs='+',
+                        help='Only run experiments with names containing these strings (e.g., --only S01 S02)')
+    
+    args = parser.parse_args()
+    
     print("🔬 Javanese ASR Scratch Model Deep Dive")
     print("="*80)
+    
+    # Load experiments from JSON
+    config_path = Path(args.config)
+    if not config_path.exists():
+        print(f"❌ Config file not found: {args.config}")
+        return
+    
+    experiments = load_experiments_from_json(args.config)
+    
+    if not experiments:
+        print("❌ No experiments found in config file")
+        return
+    
+    # Filter experiments if --only is specified
+    if args.only:
+        filtered = []
+        for exp in experiments:
+            for pattern in args.only:
+                if pattern.lower() in exp['name'].lower():
+                    filtered.append(exp)
+                    break
+        experiments = filtered
+        print(f"📌 Filtered to {len(experiments)} experiments matching: {args.only}")
+    
+    # List mode
+    if args.list:
+        print(f"\n📋 Experiments in {args.config}:")
+        print("-" * 60)
+        for i, exp in enumerate(experiments, 1):
+            cfg = exp['config']
+            print(f"{i}. {exp['name']}")
+            print(f"   token={cfg.get('token_type')}, encoder={cfg.get('encoder_type')}, "
+                  f"decoder={cfg.get('decoder_type')}, lr={cfg.get('learning_rate')}, "
+                  f"epochs={cfg.get('num_epochs')}")
+        return
     
     base_config = Config()
     tracker = ExperimentTracker()
     runner = ExperimentRunner(base_config, tracker)
-    experiments = define_experiments()
     
-    for i, exp in enumerate(experiments, 1):
-        print(f"\nRUNNING {i}/{len(experiments)}")
+    # Track which experiments to skip
+    experiments_to_run = []
+    if args.skip_existing and tracker.all_results:
+        for exp in experiments:
+            already_run = False
+            for prev_exp in tracker.all_results:
+                if config_matches(exp['config'], prev_exp['config']):
+                    print(f"⏭️  Skipping {exp['name']} (already run as experiment {prev_exp['experiment_id']})")
+                    already_run = True
+                    break
+            if not already_run:
+                experiments_to_run.append(exp)
+    else:
+        experiments_to_run = experiments
+    
+    if not experiments_to_run:
+        print("\n✅ All experiments have already been run!")
+        print(tracker.get_summary())
+        return
+    
+    print(f"\n🚀 Running {len(experiments_to_run)} experiments...")
+    
+    for i, exp in enumerate(experiments_to_run, 1):
+        print(f"\nRUNNING {i}/{len(experiments_to_run)}")
         try:
             runner.run_single_experiment(exp["name"], exp["config"])
         except Exception as e:

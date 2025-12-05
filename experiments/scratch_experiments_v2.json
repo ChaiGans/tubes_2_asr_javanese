@@ -1,0 +1,17 @@
+{
+    "name": "Scratch Model Deep Dive v1",
+    "description": "Initial experiments to explore different model configurations for Javanese ASR scratch model",
+    "created_at": "2025-12-05",
+    "experiments": [
+        {
+            "name": "S03: Standard Enc (Char, Std, LSTM)",
+            "config": {
+                "token_type": "char",
+                "encoder_type": "standard",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 100
+            }
+        }
+    ]
+}
