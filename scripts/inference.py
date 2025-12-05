@@ -7,11 +7,11 @@ import torch
 import argparse
 from pathlib import Path
 
-from model import Seq2SeqASR
-from vocab import Vocabulary
-from features import LogMelFeatureExtractor, load_audio, CMVN
-from decoder import GreedyDecoder, BeamSearchDecoder
-from utils import load_checkpoint
+from src.model import Seq2SeqASR
+from src.vocab import Vocabulary
+from src.features import LogMelFeatureExtractor, load_audio, CMVN
+from src.decoder import GreedyDecoder, BeamSearchDecoder
+from src.utils import load_checkpoint
 from config import Config
 
 

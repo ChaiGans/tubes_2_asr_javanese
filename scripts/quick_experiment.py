@@ -2,7 +2,7 @@
 Quick experiment launcher - customize and run specific experiments
 """
 
-from experiment_runner import ExperimentRunner, ExperimentTracker
+from scripts.experiment_runner import ExperimentRunner, ExperimentTracker
 from config import Config
 
 

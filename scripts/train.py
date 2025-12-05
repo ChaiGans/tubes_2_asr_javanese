@@ -9,13 +9,13 @@ from pathlib import Path
 import time
 from tqdm import tqdm
 
-from model import Seq2SeqASR
-from dataset import JavaneseASRDataset, collate_fn
-from vocab import Vocabulary, build_vocab_from_file
-from features import LogMelFeatureExtractor
-from metrics import compute_batch_cer
-from decoder import GreedyDecoder
-from utils import set_seed, count_parameters, save_checkpoint
+from src.model import Seq2SeqASR
+from src.dataset import JavaneseASRDataset, collate_fn
+from src.vocab import Vocabulary, build_vocab_from_file
+from src.features import LogMelFeatureExtractor
+from src.metrics import compute_batch_cer
+from src.decoder import GreedyDecoder
+from src.utils import set_seed, count_parameters, save_checkpoint
 from config import Config
 
 

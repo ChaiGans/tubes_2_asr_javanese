@@ -11,7 +11,7 @@ import json
 
 from model import Seq2SeqASR
 from vocab import Vocabulary
-from features import LogMelFeatureExtractor, load_audio, CMVN
+from src.features import LogMelFeatureExtractor, load_audio, CMVN
 from decoder import GreedyDecoder, BeamSearchDecoder
 from metrics import compute_cer, compute_wer
 from utils import load_checkpoint

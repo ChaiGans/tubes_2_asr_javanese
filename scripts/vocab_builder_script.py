@@ -1,7 +1,7 @@
 from pathlib import Path
-from vocab import Vocabulary, build_vocab_from_file
+from src.vocab import Vocabulary, build_vocab_from_file
 from config import Config
-from utils import set_seed
+from src.utils import set_seed
 
 # Load config
 cfg = Config()

@@ -15,14 +15,14 @@ from torch.utils.data import DataLoader, random_split
 
 
 from config import Config
-from model import Seq2SeqASR
-from dataset import JavaneseASRDataset, collate_fn  
-from vocab import Vocabulary
-from features import LogMelFeatureExtractor
-from metrics import compute_batch_cer
-from decoder import GreedyDecoder, BeamSearchDecoder
-from utils import set_seed, count_parameters, save_checkpoint
-from train import train_one_epoch, validate
+from src.model import Seq2SeqASR
+from src.dataset import JavaneseASRDataset, collate_fn  
+from src.vocab import Vocabulary
+from src.features import LogMelFeatureExtractor
+from src.metrics import compute_batch_cer
+from src.decoder import GreedyDecoder, BeamSearchDecoder
+from src.utils import set_seed, count_parameters, save_checkpoint
+from scripts.train import train_one_epoch, validate
 
 
 class ExperimentTracker:
