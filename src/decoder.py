@@ -26,31 +26,30 @@ class GreedyDecoder:
         self.device = device
     
     @torch.no_grad()
-    def decode(self, features: torch.Tensor, feature_lengths: torch.Tensor) -> List[str]:
+    def decode_batch(self, encoder_outputs: torch.Tensor, encoder_lengths: torch.Tensor) -> Tuple[List[List[int]], List[str]]:
         """
-        Greedy decode a batch of utterances.
+        Greedy decode a batch of utterances given encoder outputs.
         
         Args:
-            features: [batch, time, feat_dim]
-            feature_lengths: [batch]
-        
+            encoder_outputs: [batch, time, dim]
+            encoder_lengths: [batch]
+            
         Returns:
-            List of decoded transcripts
+            decoded_indices: List of list of token indices
+            decoded_transcripts: List of decoded strings
         """
         self.model.eval()
         
-        features = features.to(self.device)
-        feature_lengths = feature_lengths.to(self.device)
-        
-        # Encode
-        encoder_outputs, encoder_lengths = self.model.encoder(features, feature_lengths)
         batch_size = encoder_outputs.size(0)
         encoder_dim = encoder_outputs.size(2)
         
         # Initialize decoder state
-        h0 = torch.zeros(1, batch_size, self.model.decoder.decoder_dim, device=self.device)
-        c0 = torch.zeros(1, batch_size, self.model.decoder.decoder_dim, device=self.device)
-        decoder_state = (h0, c0)
+        if self.model.decoder.rnn_type == "gru":
+            decoder_state = torch.zeros(1, batch_size, self.model.decoder.decoder_dim, device=self.device)
+        else:
+            h0 = torch.zeros(1, batch_size, self.model.decoder.decoder_dim, device=self.device)
+            c0 = torch.zeros(1, batch_size, self.model.decoder.decoder_dim, device=self.device)
+            decoder_state = (h0, c0)
         
         # Initialize attention
         enc_time = encoder_outputs.size(1)
@@ -66,7 +65,7 @@ class GreedyDecoder:
         prev_token = torch.full((batch_size,), self.vocab.sos_idx, dtype=torch.long, device=self.device)
         
         # Storage for decoded sequences
-        decoded_sequences = [[] for _ in range(batch_size)]
+        decoded_indices = [[] for _ in range(batch_size)]
         finished = [False] * batch_size
         
         # Decode step by step
@@ -93,7 +92,7 @@ class GreedyDecoder:
                     if token_id == self.vocab.eos_idx or token_id == self.vocab.pad_idx:
                         finished[i] = True
                     else:
-                        decoded_sequences[i].append(token_id)
+                        decoded_indices[i].append(token_id)
             
             # Stop if all sequences finished
             if all(finished):
@@ -104,10 +103,25 @@ class GreedyDecoder:
         
         # Convert to text
         transcripts = []
-        for seq in decoded_sequences:
+        for seq in decoded_indices:
             text = self.vocab.decode(seq, remove_special=True)
             transcripts.append(text)
         
+        return decoded_indices, transcripts
+
+    @torch.no_grad()
+    def decode(self, features: torch.Tensor, feature_lengths: torch.Tensor) -> List[str]:
+        """
+        Greedy decode a batch of utterances from features.
+        """
+        self.model.eval()
+        features = features.to(self.device)
+        feature_lengths = feature_lengths.to(self.device)
+        
+        # Encode
+        encoder_outputs, encoder_lengths = self.model.encoder(features, feature_lengths)
+        
+        _, transcripts = self.decode_batch(encoder_outputs, encoder_lengths)
         return transcripts
     
     def _create_mask(self, max_len: int, lengths: torch.Tensor) -> torch.Tensor:
@@ -147,53 +161,57 @@ class BeamSearchDecoder:
         self.length_penalty = length_penalty
     
     @torch.no_grad()
-    def decode(self, features: torch.Tensor, feature_lengths: torch.Tensor) -> List[str]:
+    def decode_batch(self, encoder_outputs: torch.Tensor, encoder_lengths: torch.Tensor) -> Tuple[List[List[int]], List[str]]:
         """
-        Beam search decode a batch of utterances.
-        Note: For simplicity, this processes one utterance at a time.
-        
-        Args:
-            features: [batch, time, feat_dim]
-            feature_lengths: [batch]
-        
-        Returns:
-            List of decoded transcripts
+        Beam search decode a batch of utterances given encoder outputs.
         """
         self.model.eval()
         
-        features = features.to(self.device)
-        feature_lengths = feature_lengths.to(self.device)
-        
-        batch_size = features.size(0)
+        batch_size = encoder_outputs.size(0)
         transcripts = []
+        all_indices = []
         
         # Process each utterance separately (batch=1 beam search)
         for i in range(batch_size):
-            feat = features[i:i+1]  # [1, time, feat_dim]
-            feat_len = feature_lengths[i:i+1]  # [1]
+            enc_out = encoder_outputs[i:i+1]
+            enc_len = encoder_lengths[i:i+1]
             
-            transcript = self._beam_search_single(feat, feat_len)
+            indices, transcript = self._beam_search_single(enc_out, enc_len)
+            all_indices.append(indices)
             transcripts.append(transcript)
         
-        return transcripts
-    
-    def _beam_search_single(self, features: torch.Tensor, feature_lengths: torch.Tensor) -> str:
+        return all_indices, transcripts
+
+    @torch.no_grad()
+    def decode(self, features: torch.Tensor, feature_lengths: torch.Tensor) -> List[str]:
         """
-        Beam search for a single utterance.
+        Beam search decode a batch of utterances.
+        """
+        self.model.eval()
+        features = features.to(self.device)
+        feature_lengths = feature_lengths.to(self.device)
         
-        Returns:
-            Decoded transcript
-        """
         # Encode
         encoder_outputs, encoder_lengths = self.model.encoder(features, feature_lengths)
+        
+        _, transcripts = self.decode_batch(encoder_outputs, encoder_lengths)
+        return transcripts
+    
+    def _beam_search_single(self, encoder_outputs: torch.Tensor, encoder_lengths: torch.Tensor) -> Tuple[List[int], str]:
+        """
+        Beam search for a single utterance.
+        """
         encoder_dim = encoder_outputs.size(2)
         enc_time = encoder_outputs.size(1)
         
-        # Initialize beams: (score, tokens, decoder_state, context, attention_weights)
-        h0 = torch.zeros(1, 1, self.model.decoder.decoder_dim, device=self.device)
-        c0 = torch.zeros(1, 1, self.model.decoder.decoder_dim, device=self.device)
-        initial_state = (h0, c0)
-        
+        # Initialize beams: (score, tokens, decoder_state, context, attention_weights, is_finished)
+        if self.model.decoder.rnn_type == "gru":
+            initial_state = torch.zeros(1, 1, self.model.decoder.decoder_dim, device=self.device)
+        else:
+            h0 = torch.zeros(1, 1, self.model.decoder.decoder_dim, device=self.device)
+            c0 = torch.zeros(1, 1, self.model.decoder.decoder_dim, device=self.device)
+            initial_state = (h0, c0)
+            
         initial_context = torch.zeros(1, encoder_dim, device=self.device)
         initial_attention = torch.ones(1, enc_time, device=self.device) / enc_time
         
@@ -270,16 +288,16 @@ class BeamSearchDecoder:
         
         # Select best
         if len(completed) == 0:
-            return ""
+            return [], ""
         
         completed.sort(key=lambda x: x[0], reverse=True)
         best_tokens = completed[0][1]
         
         # Decode to text (remove <sos> and <eos>)
-        best_tokens = [t for t in best_tokens if t != self.vocab.sos_idx and t != self.vocab.eos_idx]
-        transcript = self.vocab.decode(best_tokens, remove_special=True)
+        best_tokens_clean = [t for t in best_tokens if t != self.vocab.sos_idx and t != self.vocab.eos_idx]
+        transcript = self.vocab.decode(best_tokens_clean, remove_special=True)
         
-        return transcript
+        return best_tokens_clean, transcript
     
     def _create_mask(self, max_len: int, lengths: torch.Tensor) -> torch.Tensor:
         """Create mask from lengths."""
@@ -291,4 +309,3 @@ class BeamSearchDecoder:
 
 if __name__ == "__main__":
     print("Decoder classes created successfully!")
-    print("To test, you need a trained model and vocabulary.")
