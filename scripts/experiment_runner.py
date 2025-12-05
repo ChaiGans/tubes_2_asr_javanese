@@ -69,7 +69,7 @@ class ExperimentTracker:
         
         sorted_results = sorted(
             self.all_results, 
-            key=lambda x: x['results'].get('val_wer', float('inf'))
+            key=lambda x: x['results'].get('best_val_wer', float('inf'))
         )
         
         summary += f"{'ID':<4} {'Vocab':<6} {'Enc':<10} {'Dec':<6} {'LR':<8} {'WER':<8} {'CER':<8} {'Time(m)':<8}\n"
@@ -84,8 +84,8 @@ class ExperimentTracker:
             enc = cfg.get('encoder_type', 'pyramidal')
             dec = cfg.get('decoder_type', 'lstm')
             lr = f"{cfg.get('learning_rate', 0):.0e}"
-            wer = f"{res.get('val_wer', 999):.4f}"
-            cer = f"{res.get('val_cer', 999):.4f}"
+            wer = f"{res.get('best_val_wer', 999):.4f}"
+            cer = f"{res.get('final_val_cer', 999):.4f}"
             time_m = f"{res.get('training_time_seconds', 0)/60:.1f}"
             
             summary += f"{exp_id:<4} {vocab:<6} {enc:<10} {dec:<6} {lr:<8} {wer:<8} {cer:<8} {time_m:<8}\n"
