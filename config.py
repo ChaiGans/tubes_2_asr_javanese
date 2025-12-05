@@ -13,6 +13,7 @@ class Config:
     audio_dir: str = "data/audio_input"
     transcript_file: str = "data/transcripts.csv"
     vocab_path: str = "data/vocab.json"
+    split_info_path: str = "data/split_info.json"
     
     # Training - 🚀 OPTIMIZED FOR GPU
     batch_size: int = 64  # 🚀 Increased from 8 (8x more GPU work!)

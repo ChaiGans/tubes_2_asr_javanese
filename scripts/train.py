@@ -4,7 +4,7 @@ Training script for Javanese ASR with LAS-style seq2seq model
 
 import torch
 import torch.nn as nn
-from torch.utils.data import DataLoader, random_split
+from torch.utils.data import DataLoader
 from pathlib import Path
 import time
 from tqdm import tqdm
@@ -18,6 +18,8 @@ from src.decoder import GreedyDecoder
 from src.utils import set_seed, count_parameters, save_checkpoint
 from config import Config
 
+from src.data_split import create_speaker_disjoint_split, load_split_info
+from pathlib import Path as SplitPath
 
 def train_one_epoch(
     model: nn.Module,
@@ -176,22 +178,54 @@ def main():
         hop_length_ms=cfg.hop_length_ms
     )
     
-    full_dataset = JavaneseASRDataset(
+    # Create or load split
+    if not SplitPath(cfg.split_info_path).exists():
+        print("Creating speaker-disjoint split...")
+        split_dict = create_speaker_disjoint_split(
+            transcript_file=cfg.transcript_file,
+            test_speaker_ratio=0.2,  # 20% speakers for test
+            val_utterance_ratio=0.1,  # 10% utterances for validation
+            seed=cfg.seed,
+            save_split_info=True,
+            split_info_path=cfg.split_info_path
+        )
+    else:
+        print(f"Loading existing split from {cfg.split_info_path}...")
+        split_info = load_split_info(cfg.split_info_path)
+        split_dict = split_info['split']
+        print(f"  Train: {len(split_dict['train'])} utterances")
+        print(f"  Val:   {len(split_dict['val'])} utterances")
+        print(f"  Test:  {len(split_dict['test'])} utterances")
+    
+    # Create datasets with filtered utterance IDs
+    print("\nCreating train dataset...")
+    train_dataset = JavaneseASRDataset(
         audio_dir=cfg.audio_dir,
         transcript_file=cfg.transcript_file,
         vocab=vocab,
         feature_extractor=feature_extractor,
         apply_cmvn=cfg.apply_cmvn,
         apply_spec_augment=cfg.apply_spec_augment,
-        speed_perturb=cfg.speed_perturb
+        speed_perturb=cfg.speed_perturb,
+        utt_id_filter=split_dict['train']
     )
     
-    # Split into train and validation
-    val_size = int(len(full_dataset) * cfg.val_split)
-    train_size = len(full_dataset) - val_size
-    train_dataset, val_dataset = random_split(full_dataset, [train_size, val_size])
+    print("\nCreating validation dataset...")
+    val_dataset = JavaneseASRDataset(
+        audio_dir=cfg.audio_dir,
+        transcript_file=cfg.transcript_file,
+        vocab=vocab,
+        feature_extractor=feature_extractor,
+        apply_cmvn=cfg.apply_cmvn,
+        apply_spec_augment=False,  # No augmentation for validation
+        speed_perturb=False,
+        utt_id_filter=split_dict['val']
+    )
     
-    print(f"Train size: {len(train_dataset)}, Val size: {len(val_dataset)}")
+    print(f"\nFinal dataset sizes:")
+    print(f"  Train: {len(train_dataset)} utterances")
+    print(f"  Val:   {len(val_dataset)} utterances")
+
     
     # Create dataloaders
     train_loader = DataLoader(

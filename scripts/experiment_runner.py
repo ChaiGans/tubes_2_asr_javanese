@@ -4,25 +4,25 @@ Systematically test different configurations and track performance improvements
 """
 
 import json
-import os
 import time
 from datetime import datetime
 from pathlib import Path
 from dataclasses import asdict, replace
 from typing import Dict, List, Any
 import torch
-from torch.utils.data import DataLoader, random_split
-
+from torch.utils.data import DataLoader
 
 from config import Config
 from src.model import Seq2SeqASR
 from src.dataset import JavaneseASRDataset, collate_fn  
 from src.vocab import Vocabulary
 from src.features import LogMelFeatureExtractor
-from src.metrics import compute_batch_cer
 from src.decoder import GreedyDecoder, BeamSearchDecoder
-from src.utils import set_seed, count_parameters, save_checkpoint
+from src.utils import set_seed, count_parameters
 from scripts.train import train_one_epoch, validate
+
+from src.data_split import create_speaker_disjoint_split, load_split_info
+from pathlib import Path as SplitPath
 
 
 class ExperimentTracker:
@@ -129,23 +129,40 @@ class ExperimentRunner:
             hop_length_ms=config.hop_length_ms
         )
         
-        # Create dataset
-        full_dataset = JavaneseASRDataset(
+        # Create or load split
+        if not SplitPath(config.split_info_path).exists():
+            print("Creating speaker-disjoint split...")
+            split_dict = create_speaker_disjoint_split(
+                transcript_file=config.transcript_file,
+                test_speaker_ratio=0.2,
+                val_utterance_ratio=0.1,
+                seed=config.seed,
+                save_split_info=True,
+                split_info_path=config.split_info_path
+            )
+        else:
+            split_info = load_split_info(config.split_info_path)
+            split_dict = split_info['split']
+        
+        # Create datasets with filtered utterance IDs
+        train_dataset = JavaneseASRDataset(
             audio_dir=config.audio_dir,
             transcript_file=config.transcript_file,
             vocab=vocab,
             feature_extractor=feature_extractor,
             apply_spec_augment=config.apply_spec_augment,
-            speed_perturb=config.speed_perturb
+            speed_perturb=config.speed_perturb,
+            utt_id_filter=split_dict['train']
         )
         
-        # Split dataset
-        val_size = int(len(full_dataset) * config.val_split)
-        train_size = len(full_dataset) - val_size
-        train_dataset, val_dataset = random_split(
-            full_dataset, 
-            [train_size, val_size],
-            generator=torch.Generator().manual_seed(config.seed)
+        val_dataset = JavaneseASRDataset(
+            audio_dir=config.audio_dir,
+            transcript_file=config.transcript_file,
+            vocab=vocab,
+            feature_extractor=feature_extractor,
+            apply_spec_augment=False,  # No augmentation for validation
+            speed_perturb=False,
+            utt_id_filter=split_dict['val']
         )
         
         # Create data loaders - 🚀 GPU OPTIMIZED

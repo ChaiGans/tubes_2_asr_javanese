@@ -38,13 +38,15 @@ class JavaneseASRDataset(Dataset):
         feature_extractor: Optional[LogMelFeatureExtractor] = None,
         apply_cmvn: bool = True,
         apply_spec_augment: bool = False,
-        speed_perturb: bool = False
+        speed_perturb: bool = False,
+        utt_id_filter: Optional[List[str]] = None
     ):
         self.audio_dir = Path(audio_dir)
         self.vocab = vocab
         self.apply_cmvn = apply_cmvn
         self.apply_spec_augment = apply_spec_augment
         self.speed_perturb = speed_perturb
+        self.utt_id_filter = set(utt_id_filter) if utt_id_filter else None
         
         # Feature extraction
         if feature_extractor is None:
@@ -64,6 +66,12 @@ class JavaneseASRDataset(Dataset):
         
         # Load transcript data
         self.data = self._load_transcripts(transcript_file)
+        
+        # Filter by utterance IDs if specified
+        if self.utt_id_filter is not None:
+            original_len = len(self.data)
+            self.data = [item for item in self.data if item['utt_id'] in self.utt_id_filter]
+            print(f"Filtered dataset: {original_len} -> {len(self.data)} utterances")
         
         # Validate audio files and remove corrupted ones
         print(f"Validating audio files...")
