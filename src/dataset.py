@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 import random
 
-from src.features import LogMelFeatureExtractor, CMVN, SpecAugment, load_audio
+from src.features import LogMelFeatureExtractor, CMVN, SpecAugment, load_audio, speed_perturb
 from src.vocab import Vocabulary
 
 
@@ -158,7 +158,6 @@ class JavaneseASRDataset(Dataset):
                 if self.speed_perturb and random.random() < 0.5:
                     speed_factor = random.choice([0.9, 1.1])
                     try:
-                        from features import speed_perturb
                         waveform = speed_perturb(waveform, speed_factor)
                     except:
                         pass  # Skip if speed perturb fails

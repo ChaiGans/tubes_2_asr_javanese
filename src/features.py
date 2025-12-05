@@ -77,7 +77,6 @@ class LogMelFeatureExtractor:
         
         return log_mel
 
-
 class CMVN:
     """
     Cepstral Mean and Variance Normalization.
@@ -98,49 +97,23 @@ class CMVN:
         Returns:
             normalized_features: Same shape as input
         """
-        is_batched = features.ndim == 3
+        is_batched = features.ndim == 3 
         
         if not is_batched:
             features = features.unsqueeze(0)  # [1, time, feat_dim]
+
+        if self.norm_means:
+            mean = features.mean(dim=(0, 1), keepdim=True)
+            features = features - mean
         
-        batch_size, max_time, feat_dim = features.size()
-        
-        # Per-utterance normalization
-        if lengths is not None:
-            normalized = []
-            for i in range(batch_size):
-                valid_len = lengths[i]
-                feat = features[i, :valid_len]  # [valid_len, feat_dim]
-                
-                if self.norm_means:
-                    mean = feat.mean(dim=0, keepdim=True)
-                    feat = feat - mean
-                
-                if self.norm_vars:
-                    std = feat.std(dim=0, keepdim=True) + 1e-9
-                    feat = feat / std
-                
-                # Pad back to max_time
-                padded = torch.zeros(max_time, feat_dim, dtype=features.dtype, device=features.device)
-                padded[:valid_len] = feat
-                normalized.append(padded)
-            
-            features = torch.stack(normalized, dim=0)
-        else:
-            # Global normalization (across all frames)
-            if self.norm_means:
-                mean = features.mean(dim=(0, 1), keepdim=True)
-                features = features - mean
-            
-            if self.norm_vars:
-                std = features.std(dim=(0, 1), keepdim=True) + 1e-9
-                features = features / std
+        if self.norm_vars:
+            std = features.std(dim=(0, 1), keepdim=True) + 1e-9
+            features = features / std
         
         if not is_batched:
             features = features.squeeze(0)
         
         return features
-
 
 class SpecAugment(nn.Module):
     """
@@ -240,28 +213,13 @@ def speed_perturb(waveform: torch.Tensor, speed_factor: float) -> torch.Tensor:
     Returns:
         perturbed_waveform: [new_time]
     """
-    # Simple resampling-based speed perturbation
-    effects = [
-        ["speed", str(speed_factor)],
-        ["rate", "16000"]  # Resample back to 16kHz
-    ]
-    
-    # Apply effects using torchaudio (requires sox)
-    # For a more portable solution, use torch-audiomentations or simple interpolation
-    try:
-        perturbed, _ = torchaudio.sox_effects.apply_effects_tensor(
-            waveform.unsqueeze(0), 16000, effects
-        )
-        return perturbed.squeeze(0)
-    except:
-        # Fallback: simple resampling (not perfect but works)
-        target_len = int(waveform.size(0) / speed_factor)
-        return torch.nn.functional.interpolate(
-            waveform.unsqueeze(0).unsqueeze(0),
-            size=target_len,
-            mode='linear',
-            align_corners=False
-        ).squeeze()
+    target_len = int(waveform.size(0) / speed_factor)
+    return torch.nn.functional.interpolate(
+        waveform.unsqueeze(0).unsqueeze(0),
+        size=target_len,
+        mode='linear',
+        align_corners=False
+    ).squeeze()
 
 
 if __name__ == "__main__":
@@ -289,8 +247,7 @@ if __name__ == "__main__":
     
     # Test batched
     batch = torch.stack([log_mel, log_mel], dim=0)
-    lengths = torch.tensor([log_mel.size(0), log_mel.size(0) - 10])
-    batch_normalized = cmvn(batch, lengths)
+    batch_normalized = cmvn(batch)
     print(f"Batch CMVN shape: {batch_normalized.shape}")
     
     print("Feature extraction test passed!")
