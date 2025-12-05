@@ -1,6 +1,6 @@
 [
   {
-    "experiment_id": 6,
+    "experiment_id": 1,
     "timestamp": "2025-12-05T13:02:58.859832",
     "config": {
       "token_type": "char",
@@ -323,7 +323,7 @@
     }
   },
   {
-    "experiment_id": 7,
+    "experiment_id": 2,
     "timestamp": "2025-12-05T13:08:54.342151",
     "config": {
       "token_type": "word",
@@ -646,7 +646,7 @@
     }
   },
   {
-    "experiment_id": 8,
+    "experiment_id": 3,
     "timestamp": "2025-12-05T13:21:11.181891",
     "config": {
       "token_type": "char",
@@ -656,7 +656,7 @@
       "num_epochs": 100
     },
     "results": {
-      "experiment_name": "S04: GRU Decoder (Char, Pyr, GRU)",
+      "experiment_name": "S03: GRU Decoder (Char, Pyr, GRU)",
       "train_losses": [
         2.75174820676763,
         2.229789206322203,
@@ -969,7 +969,7 @@
     }
   },
   {
-    "experiment_id": 9,
+    "experiment_id": 4,
     "timestamp": "2025-12-05T13:33:36.829431",
     "config": {
       "token_type": "char",
@@ -979,7 +979,7 @@
       "num_epochs": 100
     },
     "results": {
-      "experiment_name": "S05: High LR (1e-3)",
+      "experiment_name": "S04: High LR (1e-3)",
       "train_losses": [
         2.6387598108738026,
         2.1192971239698695,
@@ -1292,7 +1292,7 @@
     }
   },
   {
-    "experiment_id": 10,
+    "experiment_id": 5,
     "timestamp": "2025-12-05T13:46:07.211604",
     "config": {
       "token_type": "char",
@@ -1302,7 +1302,7 @@
       "num_epochs": 100
     },
     "results": {
-      "experiment_name": "S06: Low LR (1e-4)",
+      "experiment_name": "S05: Low LR (1e-4)",
       "train_losses": [
         3.2324215300539705,
         2.8235724936140345,

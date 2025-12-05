@@ -24,7 +24,7 @@
             }
         },
         {
-            "name": "S04: GRU Decoder (Char, Pyr, GRU)",
+            "name": "S03: GRU Decoder (Char, Pyr, GRU)",
             "config": {
                 "token_type": "char",
                 "encoder_type": "pyramidal",
@@ -34,7 +34,7 @@
             }
         },
         {
-            "name": "S05: High LR (1e-3)",
+            "name": "S04: High LR (1e-3)",
             "config": {
                 "token_type": "char",
                 "encoder_type": "pyramidal",
@@ -44,7 +44,7 @@
             }
         },
         {
-            "name": "S06: Low LR (1e-4)",
+            "name": "S05: Low LR (1e-4)",
             "config": {
                 "token_type": "char",
                 "encoder_type": "pyramidal",

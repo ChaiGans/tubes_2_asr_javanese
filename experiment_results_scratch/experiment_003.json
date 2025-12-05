@@ -1,5 +1,5 @@
 {
-  "experiment_id": 8,
+  "experiment_id": 3,
   "timestamp": "2025-12-05T13:21:11.181891",
   "config": {
     "token_type": "char",
@@ -9,7 +9,7 @@
     "num_epochs": 100
   },
   "results": {
-    "experiment_name": "S04: GRU Decoder (Char, Pyr, GRU)",
+    "experiment_name": "S03: GRU Decoder (Char, Pyr, GRU)",
     "train_losses": [
       2.75174820676763,
       2.229789206322203,

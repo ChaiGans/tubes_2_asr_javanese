@@ -72,23 +72,54 @@ class ExperimentTracker:
             key=lambda x: x['results'].get('best_val_wer', float('inf'))
         )
         
-        summary += f"{'ID':<4} {'Vocab':<6} {'Enc':<10} {'Dec':<6} {'LR':<8} {'WER':<8} {'CER':<8} {'Time(m)':<8}\n"
-        summary += "-"*120 + "\n"
+        # Quick overview table
+        summary += "QUICK OVERVIEW (sorted by WER):\n"
+        summary += "-"*100 + "\n"
+        summary += f"{'ID':<4} {'Name':<35} {'WER':<10} {'CER':<10} {'Time(m)':<10}\n"
+        summary += "-"*100 + "\n"
+        
+        for exp in sorted_results:
+            exp_id = exp['experiment_id']
+            res = exp['results']
+            name = res.get('experiment_name', 'Unknown')[:35]
+            wer = f"{res.get('best_val_wer', 999):.4f}"
+            cer = f"{res.get('final_val_cer', 999):.4f}"
+            time_m = f"{res.get('training_time_seconds', 0)/60:.1f}"
+            summary += f"{exp_id:<4} {name:<35} {wer:<10} {cer:<10} {time_m:<10}\n"
+        
+        summary += "\n\n"
+        
+        # Detailed config for each experiment
+        summary += "DETAILED CONFIGURATIONS:\n"
+        summary += "="*100 + "\n\n"
         
         for exp in sorted_results:
             exp_id = exp['experiment_id']
             cfg = exp['config']
             res = exp['results']
             
-            vocab = cfg.get('token_type', 'char')
-            enc = cfg.get('encoder_type', 'pyramidal')
-            dec = cfg.get('decoder_type', 'lstm')
-            lr = f"{cfg.get('learning_rate', 0):.0e}"
-            wer = f"{res.get('best_val_wer', 999):.4f}"
-            cer = f"{res.get('final_val_cer', 999):.4f}"
-            time_m = f"{res.get('training_time_seconds', 0)/60:.1f}"
+            summary += f"[Experiment {exp_id}] {res.get('experiment_name', 'Unknown')}\n"
+            summary += "-"*60 + "\n"
             
-            summary += f"{exp_id:<4} {vocab:<6} {enc:<10} {dec:<6} {lr:<8} {wer:<8} {cer:<8} {time_m:<8}\n"
+            # Model Config
+            summary += "  Model:\n"
+            summary += f"    token_type:      {cfg.get('token_type', 'char')}\n"
+            summary += f"    encoder_type:    {cfg.get('encoder_type', 'pyramidal')}\n"
+            summary += f"    decoder_type:    {cfg.get('decoder_type', 'lstm')}\n"
+            
+            # Training Config
+            summary += "  Training:\n"
+            summary += f"    learning_rate:   {cfg.get('learning_rate', 0.0005)}\n"
+            summary += f"    num_epochs:      {cfg.get('num_epochs', 100)}\n"
+            summary += f"    batch_size:      {cfg.get('batch_size', 32)}\n"
+            summary += f"    dropout:         {cfg.get('dropout', 0.3)}\n"
+            
+            # Results
+            summary += "  Results:\n"
+            summary += f"    best_val_wer:    {res.get('best_val_wer', 'N/A')}\n"
+            summary += f"    final_val_cer:   {res.get('final_val_cer', 'N/A')}\n"
+            summary += f"    training_time:   {res.get('training_time_seconds', 0)/60:.1f} min\n"
+            summary += "\n"
         
         return summary
 

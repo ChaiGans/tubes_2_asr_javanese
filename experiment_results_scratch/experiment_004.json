@@ -1,5 +1,5 @@
 {
-  "experiment_id": 9,
+  "experiment_id": 4,
   "timestamp": "2025-12-05T13:33:36.829431",
   "config": {
     "token_type": "char",
@@ -9,7 +9,7 @@
     "num_epochs": 100
   },
   "results": {
-    "experiment_name": "S05: High LR (1e-3)",
+    "experiment_name": "S04: High LR (1e-3)",
     "train_losses": [
       2.6387598108738026,
       2.1192971239698695,

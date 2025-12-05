@@ -5,8 +5,9 @@ EXPERIMENT SUMMARY (Scratch Deep Dive)
 
 ID   Vocab  Enc        Dec    LR       WER      CER      Time(m) 
 ------------------------------------------------------------------------------------------------------------------------
-7    word   pyramidal  lstm   5e-04    0.9483   0.7561   5.9      
-8    char   pyramidal  gru    5e-04    0.9895   0.7721   12.3      
-9    char   pyramidal  lstm   1e-03    0.9972   0.8354   12.4     
-6    char   pyramidal  lstm   5e-04    0.9979   0.7545   12.3      
-10   char   pyramidal  lstm   1e-04    1.0307   0.7923   12.5    
+1    word   pyramidal  lstm   5e-04    0.9483   0.7561   5.9      
+2    char   pyramidal  gru    5e-04    0.9895   0.7721   12.3      
+6    char   standard   lstm   5e-04    0.9930   0.7953   17.3      
+3    char   pyramidal  lstm   1e-03    0.9972   0.8354   12.4     
+4    char   pyramidal  lstm   5e-04    0.9979   0.7545   12.3      
+5    char   pyramidal  lstm   1e-04    1.0307   0.7923   12.5    
