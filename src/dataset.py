@@ -11,6 +11,7 @@ import random
 
 from src.features import LogMelFeatureExtractor, CMVN, SpecAugment, load_audio
 from src.vocab import Vocabulary
+from src.text_preprocessor import TextPreprocessor
 
 
 class JavaneseASRDataset(Dataset):
@@ -29,6 +30,8 @@ class JavaneseASRDataset(Dataset):
         apply_cmvn: Whether to apply CMVN normalization
         apply_spec_augment: Whether to apply SpecAugment (training only)
         speed_perturb: Whether to apply speed perturbation (training only)
+        preprocessor: Optional TextPreprocessor for transcript normalization
+        use_preprocessing: Whether to apply text preprocessing (default: True)
     """
     def __init__(
         self,
@@ -38,13 +41,22 @@ class JavaneseASRDataset(Dataset):
         feature_extractor: Optional[LogMelFeatureExtractor] = None,
         apply_cmvn: bool = True,
         apply_spec_augment: bool = False,
-        speed_perturb: bool = False
+        speed_perturb: bool = False,
+        preprocessor: Optional[TextPreprocessor] = None,
+        use_preprocessing: bool = True
     ):
         self.audio_dir = Path(audio_dir)
         self.vocab = vocab
         self.apply_cmvn = apply_cmvn
         self.apply_spec_augment = apply_spec_augment
         self.speed_perturb = speed_perturb
+        self.use_preprocessing = use_preprocessing
+        
+        # Text preprocessing
+        if use_preprocessing and preprocessor is None:
+            self.preprocessor = TextPreprocessor(seed=42, ampersand_replacement='random')
+        else:
+            self.preprocessor = preprocessor
         
         # Feature extraction
         if feature_extractor is None:
@@ -90,6 +102,10 @@ class JavaneseASRDataset(Dataset):
                 if len(parts) >= 2:
                     utt_id = parts[0].strip()
                     transcript = parts[1].strip()
+                    
+                    # Apply preprocessing if enabled
+                    if self.use_preprocessing and self.preprocessor:
+                        transcript = self.preprocessor.preprocess(transcript)
                     
                     # Skip empty transcripts
                     if not transcript:
