@@ -43,7 +43,7 @@ class TranscriptCleaner:
         
         # Punctuation to remove
         self.punctuation = set(string.punctuation)
-        self.punctuation.update(['"', '"', ''', ''', '–', '—', '…'])
+        self.punctuation.update(['"', '"', ''', ''', '–', '—', '…', '’', '“', '”', "T"])
     
     def clean(self, text):
         """
