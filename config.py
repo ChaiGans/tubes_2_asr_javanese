@@ -15,20 +15,20 @@ class Config:
     vocab_path: str = "data/vocab.json"
     split_info_path: str = "data/split_info.json"
     
-    # Training - 🚀 OPTIMIZED FOR GPU
-    batch_size: int = 64  # 🚀 Increased from 8 (8x more GPU work!)
+    # Training - Reduced for GPU memory
+    batch_size: int = 32  # Reduced from 64
     num_epochs: int = 2
     learning_rate: float = 1e-3
     grad_clip_norm: float = 5.0
     teacher_forcing_ratio: float = 1.0
     
-    # Model architecture - 🚀 LARGER FOR MORE GPU UTILIZATION
+    # Model architecture - Reduced for GPU memory
     input_dim: int = 80  # Log-mel features
-    encoder_hidden_size: int = 256  # 🚀 Increased from 128 (2x)
+    encoder_hidden_size: int = 128  # Reduced from 256
     encoder_num_layers: int = 3
-    decoder_dim: int = 512  # 🚀 Increased from 256 (2x)
-    attention_dim: int = 256  # 🚀 Increased from 128 (2x)
-    embedding_dim: int = 128  # 🚀 Increased from 64 (2x)
+    decoder_dim: int = 256  # Reduced from 512
+    attention_dim: int = 128  # Reduced from 256
+    embedding_dim: int = 64  # Reduced from 128
     dropout: float = 0.3
     
     # CTC settings
@@ -58,8 +58,8 @@ class Config:
     max_decode_len: int = 200
     beam_size: int = 5
     
-    # Device
-    device: str = "cuda"  # or "cpu"
+    # Device - auto-detect CUDA
+    device: str = "cuda" if __import__('torch').cuda.is_available() else "cpu"
     
     # Random seed
     seed: int = 42
