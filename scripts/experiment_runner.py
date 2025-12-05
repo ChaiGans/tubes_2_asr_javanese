@@ -19,7 +19,7 @@ from src.dataset import JavaneseASRDataset, collate_fn
 from src.vocab import Vocabulary
 from src.features import LogMelFeatureExtractor
 from src.decoder import GreedyDecoder, BeamSearchDecoder
-from src.utils import set_seed, count_parameters
+from src.utils import set_seed, count_parameters, read_transcript
 from scripts.train import train_one_epoch, validate
 
 from src.data_split import create_speaker_disjoint_split, load_split_info
@@ -103,13 +103,11 @@ class ExperimentRunner:
         # Note: We rebuild it here to ensure it matches the requested type
         # In a real scenario, we might want to cache these
         print(f"Building {token_type}-level vocabulary...")
+        
+        # Use utility to read transcripts correctly (handles CSV format and header)
+        transcripts = read_transcript(config.transcript_file)
+        
         vocab = Vocabulary(token_type=token_type)
-        transcripts = []
-        with open(config.transcript_file, 'r', encoding='utf-8') as f:
-            for line in f:
-                parts = line.strip().split('\t')
-                if len(parts) == 2:
-                    transcripts.append(parts[1])
         vocab.build_from_transcripts(transcripts, min_freq=1)
         print(f"Vocabulary size: {len(vocab)}")
         
