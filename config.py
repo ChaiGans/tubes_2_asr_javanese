@@ -70,6 +70,10 @@ class Config:
     prefetch_factor: int = 2  # Prefetch batches ahead
     persistent_workers: bool = True  # Reuse worker processes
 
+    token_type: str = "char"
+    encoder_type: str = "pyramidal"
+    decoder_type: str = "lstm"
+
 if __name__ == "__main__":
     cfg = Config()
     print("Default configuration:")
