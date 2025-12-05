@@ -3,6 +3,7 @@ Dataset class for Javanese ASR
 Loads audio files and transcripts, applies feature extraction and augmentation
 """
 
+from config import Config
 import torch
 from torch.utils.data import Dataset, DataLoader
 from pathlib import Path
@@ -55,14 +56,8 @@ class JavaneseASRDataset(Dataset):
             self.feature_extractor = feature_extractor
         
         # CMVN and SpecAugment
-        self.cmvn = CMVN(norm_means=True, norm_vars=True)
-        self.spec_augment = SpecAugment(
-            freq_mask_param=27,
-            time_mask_param=100,
-            num_freq_masks=1,
-            num_time_masks=1
-        )
-        
+        self.cmvn = CMVN()
+        self.spec_augment = SpecAugment() 
         
         # Load transcript data
         self.data = self._load_transcripts(transcript_file)
@@ -103,44 +98,17 @@ class JavaneseASRDataset(Dataset):
                     if not transcript:
                         continue
                     
-                    # Construct audio file path
-                    # Try both capitalized and lowercase formats
-                    # Format: speaker01_m_nn_utt01 -> Speaker01_m_nn_utt01.wav
-                    audio_path_lower = self.audio_dir / f"{utt_id}.wav"
-                    
-                    # If the first letter of utt_id is lowercase 's', try capitalizing just the 'S'
-                    if utt_id.startswith('speaker'):
-                        audio_path_cap = self.audio_dir / f"S{utt_id[1:]}.wav"
+                    audio_path = self.audio_dir / f"{utt_id}.wav"
+
+                    if (audio_path.exists()):
+                        data.append({
+                            'utt_id': utt_id,
+                            'audio_path': str(audio_path),
+                            'transcript': transcript
+                        })
                     else:
-                        audio_path_cap = self.audio_dir / f"{utt_id.capitalize()}.wav"
-                    
-                    # Check which file exists
-                    if audio_path_lower.exists():
-                        audio_path = audio_path_lower
-                    elif audio_path_cap.exists():
-                        audio_path = audio_path_cap
-                    else:
-                        # Try one more format with dash instead of underscore for some speakers
-                        audio_path_dash = self.audio_dir / f"{utt_id.replace('_', '-')}.wav"
-                        if audio_path_dash.exists():
-                            audio_path = audio_path_dash
-                        else:
-                            # Also try capitalized with dash
-                            if utt_id.startswith('speaker'):
-                                audio_path_cap_dash = self.audio_dir / f"S{utt_id[1:].replace('_', '-')}.wav"
-                            else:
-                                audio_path_cap_dash = self.audio_dir / f"{utt_id.capitalize().replace('_', '-')}.wav"
-                            
-                            if audio_path_cap_dash.exists():
-                                audio_path = audio_path_cap_dash
-                            else:
-                                continue  # Skip if not found
-                    
-                    data.append({
-                        'utt_id': utt_id,
-                        'audio_path': str(audio_path),
-                        'transcript': transcript
-                    })
+                        print(f"Audio file not found for utterance {utt_id}")
+                        continue
         
         return data
     
@@ -283,37 +251,52 @@ if __name__ == "__main__":
     # This is a test with dummy data
     # In real usage, you would have actual audio files and transcripts
     
-    from vocab import Vocabulary
+    from src.vocab import Vocabulary
+    from config import Config
     
     # Create dummy vocabulary
     vocab = Vocabulary()
-    vocab.build_from_transcripts([
-        "aku libur sedina",
-        "wong jawa seneng"
-    ])
+    config = Config()
+
+    transcripts = []
+    
+    with open(config.transcript_file, 'r', encoding='utf-8') as f:
+        count = 0
+        for line in f:
+            if (count == 0):
+                count += 1
+                continue
+            line = line.strip()
+            if not line:
+                continue
+            
+            # Split by tab
+            parts = line.split(',')
+            if len(parts) >= 2:
+                transcript = parts[1].strip()
+                transcripts.append(transcript)
+    
+    print(f"Read {len(transcripts)} transcripts from {config.transcript_file}")
+
+    vocab.build_from_transcripts(transcripts)
     
     print(f"Vocabulary size: {len(vocab)}")
     
-    # Note: This test requires actual audio files to run
-    # You can test with your actual data by uncommenting below:
-    """
     dataset = JavaneseASRDataset(
-        audio_dir="audio_input",
-        transcript_file="transcripts.csv",
+        audio_dir=config.audio_dir,
+        transcript_file=config.transcript_file,
         vocab=vocab,
         apply_cmvn=True,
         apply_spec_augment=True,
         speed_perturb=True
     )
     
-    # Test single item
-    features, target, transcript, utt_id = dataset[0]
+    features, target, transcript, utt_id = dataset[1]
     print(f"Features shape: {features.shape}")
     print(f"Target shape: {target.shape}")
     print(f"Transcript: {transcript}")
     print(f"Utterance ID: {utt_id}")
     
-    # Test DataLoader
     dataloader = DataLoader(
         dataset,
         batch_size=4,
@@ -327,7 +310,6 @@ if __name__ == "__main__":
     print(f"Batch targets shape: {batch['targets'].shape}")
     print(f"Feature lengths: {batch['feature_lengths']}")
     print(f"Target lengths: {batch['target_lengths']}")
-    """
     
     print("\nDataset class created successfully!")
     print("To test with actual data, provide audio files and transcripts.")
