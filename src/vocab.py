@@ -5,7 +5,8 @@ Character-level Vocabulary for Javanese ASR
 import json
 from typing import List, Dict, Optional
 from pathlib import Path
-
+from config import Config
+from src.utils import read_transcript
 
 class Vocabulary:
     """
@@ -172,21 +173,7 @@ def build_vocab_from_file(transcript_file: str, save_path: Optional[str] = None)
     Returns:
         Vocabulary object
     """
-    transcripts = []
-
-    print("trasncript_file", transcript_file)
-    
-    with open(transcript_file, 'r', encoding='utf-8') as f:
-        for line in f:
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Split by tab
-            parts = line.split(',')
-            if len(parts) >= 2:
-                transcript = parts[1].strip()
-                transcripts.append(transcript)
+    transcripts = read_transcript(transcript_file)
     
     print(f"Read {len(transcripts)} transcripts from {transcript_file}")
     
@@ -204,21 +191,16 @@ def build_vocab_from_file(transcript_file: str, save_path: Optional[str] = None)
 if __name__ == "__main__":
     # Test vocabulary
     print("Testing Vocabulary...")
-    
-    # Sample transcripts
-    transcripts = [
-        "aku libur sedina merga ana banjir",
-        "wong jawa seneng mangan nasi",
-        "sekolah diliburake merga udan deres"
-    ]
-    
+
+    config = Config()
+    transcripts = read_transcript(config.transcript_file)    
     # Build vocab
     vocab = Vocabulary()
     vocab.build_from_transcripts(transcripts)
     
     print(f"\nVocabulary size: {len(vocab)}")
     print(f"Special tokens: {vocab.special_tokens}")
-    print(f"Sample characters: {list(vocab.char2idx.keys())[5:15]}")
+    print(f"Sample characters: {list(vocab.char2idx.keys())[5:]}")
     
     # Test encoding
     text = "aku seneng"

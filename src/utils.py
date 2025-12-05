@@ -5,7 +5,7 @@ Utility functions for Javanese ASR
 import torch
 import torch.nn as nn
 from pathlib import Path
-from typing import Dict, Any
+from typing import Dict, Any, List
 import random
 import numpy as np
 
@@ -121,6 +121,24 @@ def create_mask(lengths: torch.Tensor, max_len: int = None) -> torch.Tensor:
     mask = (mask < lengths.unsqueeze(1)).long()
     
     return mask
+
+def read_transcript(transcript_file: str) -> List[str]:
+    transcripts = []
+    with open(transcript_file, 'r', encoding='utf-8') as f:
+        count = 0
+        for line in f:
+            if count == 0:
+                count += 1
+                continue
+            line = line.strip()
+            if not line:
+                continue
+            # Split by tab
+            parts = line.split(',')
+            if len(parts) >= 2:
+                transcript = parts[1].strip()
+                transcripts.append(transcript)
+    return transcripts
 
 
 if __name__ == "__main__":

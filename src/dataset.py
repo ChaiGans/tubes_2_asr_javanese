@@ -12,7 +12,7 @@ import random
 
 from src.features import LogMelFeatureExtractor, CMVN, SpecAugment, load_audio, speed_perturb
 from src.vocab import Vocabulary
-
+from src.utils import read_transcript
 
 class JavaneseASRDataset(Dataset):
     """
@@ -257,23 +257,7 @@ if __name__ == "__main__":
     vocab = Vocabulary()
     config = Config()
 
-    transcripts = []
-    
-    with open(config.transcript_file, 'r', encoding='utf-8') as f:
-        count = 0
-        for line in f:
-            if (count == 0):
-                count += 1
-                continue
-            line = line.strip()
-            if not line:
-                continue
-            
-            # Split by tab
-            parts = line.split(',')
-            if len(parts) >= 2:
-                transcript = parts[1].strip()
-                transcripts.append(transcript)
+    transcripts = read_transcript(config.transcript_file)
     
     print(f"Read {len(transcripts)} transcripts from {config.transcript_file}")
 
