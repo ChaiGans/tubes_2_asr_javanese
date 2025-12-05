@@ -1,6 +1,5 @@
 """
-Experiment Runner for Javanese ASR
-Systematically test different configurations and track performance improvements
+Experiment Runner for Javanese ASR (Scratch Model Deep Dive)
 """
 
 import json
@@ -11,6 +10,8 @@ from dataclasses import asdict, replace
 from typing import Dict, List, Any
 import torch
 from torch.utils.data import DataLoader
+import jiwer
+import pandas as pd
 
 from config import Config
 from src.model import Seq2SeqASR
@@ -28,12 +29,11 @@ from pathlib import Path as SplitPath
 class ExperimentTracker:
     """Track experiments and their results"""
     
-    def __init__(self, results_dir: str = "experiment_results"):
+    def __init__(self, results_dir: str = "experiment_results_scratch"):
         self.results_dir = Path(results_dir)
         self.results_dir.mkdir(exist_ok=True)
         self.results_file = self.results_dir / "all_experiments.json"
         
-        # Load existing results if available
         if self.results_file.exists():
             with open(self.results_file, 'r', encoding='utf-8') as f:
                 self.all_results = json.load(f)
@@ -41,7 +41,6 @@ class ExperimentTracker:
             self.all_results = []
     
     def save_experiment(self, experiment_config: Dict[str, Any], results: Dict[str, Any]):
-        """Save a single experiment result"""
         experiment_data = {
             "experiment_id": len(self.all_results) + 1,
             "timestamp": datetime.now().isoformat(),
@@ -51,85 +50,74 @@ class ExperimentTracker:
         
         self.all_results.append(experiment_data)
         
-        # Save all results
         with open(self.results_file, 'w', encoding='utf-8') as f:
             json.dump(self.all_results, f, indent=2, ensure_ascii=False)
         
-        # Save individual experiment
         exp_file = self.results_dir / f"experiment_{experiment_data['experiment_id']:03d}.json"
         with open(exp_file, 'w', encoding='utf-8') as f:
             json.dump(experiment_data, f, indent=2, ensure_ascii=False)
         
-        print(f"✅ Saved experiment {experiment_data['experiment_id']} to {exp_file}")
-        
         return experiment_data['experiment_id']
     
     def get_summary(self) -> str:
-        """Get a summary of all experiments"""
         if not self.all_results:
             return "No experiments run yet."
         
-        summary = "\n" + "="*80 + "\n"
-        summary += "EXPERIMENT SUMMARY\n"
-        summary += "="*80 + "\n\n"
+        summary = "\n" + "="*120 + "\n"
+        summary += "EXPERIMENT SUMMARY (Scratch Deep Dive)\n"
+        summary += "="*120 + "\n\n"
         
-        # Sort by CER (best first)
         sorted_results = sorted(
             self.all_results, 
-            key=lambda x: x['results'].get('val_cer', float('inf'))
+            key=lambda x: x['results'].get('val_wer', float('inf'))
         )
         
-        summary += f"{'ID':<5} {'CTC':<6} {'Epochs':<8} {'Beam':<6} {'LR':<10} {'Val CER':<10} {'Val WER':<10}\n"
-        summary += "-"*80 + "\n"
+        summary += f"{'ID':<4} {'Vocab':<6} {'Enc':<10} {'Dec':<6} {'LR':<8} {'WER':<8} {'CER':<8} {'Time(m)':<8}\n"
+        summary += "-"*120 + "\n"
         
         for exp in sorted_results:
             exp_id = exp['experiment_id']
             cfg = exp['config']
             res = exp['results']
             
-            use_ctc = "Yes" if cfg.get('use_ctc', False) else "No"
-            epochs = cfg.get('num_epochs', 'N/A')
-            beam = cfg.get('beam_size', 1)
+            vocab = cfg.get('token_type', 'char')
+            enc = cfg.get('encoder_type', 'pyramidal')
+            dec = cfg.get('decoder_type', 'lstm')
             lr = f"{cfg.get('learning_rate', 0):.0e}"
-            val_cer = f"{res.get('val_cer', 999):.4f}"
-            val_wer = f"{res.get('val_wer', 999):.4f}"
+            wer = f"{res.get('val_wer', 999):.4f}"
+            cer = f"{res.get('val_cer', 999):.4f}"
+            time_m = f"{res.get('training_time_seconds', 0)/60:.1f}"
             
-            summary += f"{exp_id:<5} {use_ctc:<6} {epochs:<8} {beam:<6} {lr:<10} {val_cer:<10} {val_wer:<10}\n"
-        
-        summary += "\n" + "="*80 + "\n"
-        
-        # Best experiment
-        best_exp = sorted_results[0]
-        summary += f"\n🏆 Best Experiment: #{best_exp['experiment_id']}\n"
-        summary += f"   Val CER: {best_exp['results'].get('val_cer', 'N/A'):.4f}\n"
-        summary += f"   Val WER: {best_exp['results'].get('val_wer', 'N/A'):.4f}\n"
-        summary += f"   Config: {json.dumps(best_exp['config'], indent=6)}\n"
+            summary += f"{exp_id:<4} {vocab:<6} {enc:<10} {dec:<6} {lr:<8} {wer:<8} {cer:<8} {time_m:<8}\n"
         
         return summary
 
 
 class ExperimentRunner:
-    """Run systematic experiments with different configurations"""
-    
     def __init__(self, base_config: Config, tracker: ExperimentTracker):
         self.base_config = base_config
         self.tracker = tracker
         
-    def prepare_data(self, config: Config):
-        """Prepare datasets and loaders"""
-        # Load vocabulary
-        vocab = Vocabulary.load(config.vocab_path)
+    def prepare_data(self, config: Config, token_type: str):
+        # Load vocabulary with specific token type
+        # Note: We rebuild it here to ensure it matches the requested type
+        # In a real scenario, we might want to cache these
+        print(f"Building {token_type}-level vocabulary...")
+        vocab = Vocabulary(token_type=token_type)
+        transcripts = []
+        with open(config.transcript_file, 'r', encoding='utf-8') as f:
+            for line in f:
+                parts = line.strip().split('\t')
+                if len(parts) == 2:
+                    transcripts.append(parts[1])
+        vocab.build_from_transcripts(transcripts, min_freq=1)
         print(f"Vocabulary size: {len(vocab)}")
         
-        # Feature extractor
         feature_extractor = LogMelFeatureExtractor(
             sample_rate=config.sample_rate,
-            n_mels=config.n_mels,
-            win_length_ms=config.win_length_ms,
-            hop_length_ms=config.hop_length_ms
+            n_mels=config.n_mels
         )
         
-        # Create or load split
         if not SplitPath(config.split_info_path).exists():
             print("Creating speaker-disjoint split...")
             split_dict = create_speaker_disjoint_split(
@@ -144,14 +132,12 @@ class ExperimentRunner:
             split_info = load_split_info(config.split_info_path)
             split_dict = split_info['split']
         
-        # Create datasets with filtered utterance IDs
         train_dataset = JavaneseASRDataset(
             audio_dir=config.audio_dir,
             transcript_file=config.transcript_file,
             vocab=vocab,
             feature_extractor=feature_extractor,
             apply_spec_augment=config.apply_spec_augment,
-            speed_perturb=config.speed_perturb,
             utt_id_filter=split_dict['train']
         )
         
@@ -160,21 +146,17 @@ class ExperimentRunner:
             transcript_file=config.transcript_file,
             vocab=vocab,
             feature_extractor=feature_extractor,
-            apply_spec_augment=False,  # No augmentation for validation
-            speed_perturb=False,
+            apply_spec_augment=False,
             utt_id_filter=split_dict['val']
         )
         
-        # Create data loaders - 🚀 GPU OPTIMIZED
         train_loader = DataLoader(
             train_dataset,
             batch_size=config.batch_size,
             shuffle=True,
             collate_fn=collate_fn,
-            num_workers=getattr(config, 'num_workers', 6),  # 🚀 Parallel data loading
-            pin_memory=getattr(config, 'pin_memory', True),  # 🚀 Faster CPU→GPU transfers
-            prefetch_factor=getattr(config, 'prefetch_factor', 2) if getattr(config, 'num_workers', 0) > 0 else None,
-            persistent_workers=getattr(config, 'persistent_workers', True) if getattr(config, 'num_workers', 0) > 0 else False
+            num_workers=4,
+            pin_memory=True
         )
         
         val_loader = DataLoader(
@@ -182,50 +164,31 @@ class ExperimentRunner:
             batch_size=config.batch_size,
             shuffle=False,
             collate_fn=collate_fn,
-            num_workers=getattr(config, 'num_workers', 6),  # 🚀 Parallel data loading
-            pin_memory=getattr(config, 'pin_memory', True),  # 🚀 Faster CPU→GPU transfers
-            prefetch_factor=getattr(config, 'prefetch_factor', 2) if getattr(config, 'num_workers', 0) > 0 else None,
-            persistent_workers=getattr(config, 'persistent_workers', True) if getattr(config, 'num_workers', 0) > 0 else False
+            num_workers=4,
+            pin_memory=True
         )
         
         return vocab, train_loader, val_loader
     
-    def run_single_experiment(
-        self, 
-        experiment_name: str,
-        config_overrides: Dict[str, Any]
-    ) -> Dict[str, Any]:
-        """
-        Run a single experiment with given configuration
-        
-        Args:
-            experiment_name: Descriptive name for the experiment
-            config_overrides: Dictionary of config parameters to override
-            
-        Returns:
-            Dictionary containing experiment results
-        """
+    def run_single_experiment(self, experiment_name: str, config_overrides: Dict[str, Any]):
         print("\n" + "="*80)
         print(f"🔬 EXPERIMENT: {experiment_name}")
         print("="*80)
         
-        # Create config for this experiment
         current_config = replace(self.base_config, **config_overrides)
+        token_type = config_overrides.get("token_type", "char")
+        encoder_type = config_overrides.get("encoder_type", "pyramidal")
+        decoder_type = config_overrides.get("decoder_type", "lstm")
         
-        # Set seed for reproducibility
         set_seed(current_config.seed)
         
-        # Display experiment config
         print("\n📋 Configuration:")
         for key, value in config_overrides.items():
             print(f"   {key}: {value}")
         
-        # Prepare data
-        print("\n📂 Loading data...")
-        vocab, train_loader, val_loader = self.prepare_data(current_config)
+        vocab, train_loader, val_loader = self.prepare_data(current_config, token_type)
         
-        # Create model
-        print("\n🏗️  Building model...")
+        print(f"\n🏗️  Building model...")
         model = Seq2SeqASR(
             vocab_size=len(vocab),
             input_dim=current_config.input_dim,
@@ -235,291 +198,186 @@ class ExperimentRunner:
             attention_dim=current_config.attention_dim,
             embedding_dim=current_config.embedding_dim,
             dropout=current_config.dropout,
-            use_ctc=current_config.use_ctc
+            use_ctc=current_config.use_ctc,
+            ctc_weight=current_config.ctc_weight,
+            encoder_type=encoder_type,
+            decoder_type=decoder_type
         ).to(current_config.device)
         
-        num_params = count_parameters(model)
-        print(f"   Model parameters: {num_params:,}")
+        print(f"   Model parameters: {count_parameters(model):,}")
         
-        # Optimizer
         optimizer = torch.optim.Adam(model.parameters(), lr=current_config.learning_rate)
         
-        # Training
         print(f"\n🏃 Training for {current_config.num_epochs} epochs...")
         start_time = time.time()
         
         train_losses = []
         val_cers = []
         val_wers = []
-        
-        best_val_cer = float('inf')
+        best_val_wer = float('inf')
         
         for epoch in range(1, current_config.num_epochs + 1):
-            # Train
             train_loss = train_one_epoch(
-                model=model,
-                dataloader=train_loader,
-                optimizer=optimizer,
-                vocab=vocab,
-                device=current_config.device,
-                epoch=epoch,
-                grad_clip_norm=current_config.grad_clip_norm,
+                model, train_loader, optimizer, vocab, current_config.device, epoch, current_config.grad_clip_norm
             )
             train_losses.append(train_loss)
             
-            # Validate
             print(f"\n   Validating epoch {epoch}...")
             
-            # Use appropriate decoder based on config
-            if current_config.beam_size > 1:
-                decoder = BeamSearchDecoder(
-                    model=model,
-                    vocab=vocab,
-                    beam_size=current_config.beam_size,
-                    max_len=current_config.max_decode_len,
-                    device=current_config.device  # ✅ Add device parameter
-                )
-            else:
-                decoder = GreedyDecoder(
-                    model=model,
-                    vocab=vocab,
-                    max_len=current_config.max_decode_len,
-                    device=current_config.device  # ✅ Add device parameter
-                )
+            # Use Greedy Decoder for validation speed
+            decoder = GreedyDecoder(model, vocab, max_len=current_config.max_decode_len, device=current_config.device)
             
-            val_loss, val_cer = validate(
-                model=model,
-                dataloader=val_loader,
-                decoder=decoder,
-                vocab=vocab,
-                device=current_config.device
+            val_loss, val_cer, predictions, references = self.validate_with_metrics(
+                model, val_loader, decoder, vocab, current_config.device, encoder_type
             )
             
+            val_wer = jiwer.wer(references, predictions)
             val_cers.append(val_cer)
-            
-            # Approximate WER (you can make this more accurate)
-            val_wer = val_cer * 1.2  # Rough approximation
             val_wers.append(val_wer)
             
-            print(f"   Epoch {epoch}: Train Loss={train_loss:.4f}, Val CER={val_cer:.4f}, Val WER={val_wer:.4f}")
+            print(f"   Epoch {epoch}: Loss={train_loss:.4f}, CER={val_cer:.4f}, WER={val_wer:.4f}")
             
-            # Track best model and save checkpoint
-            if val_cer < best_val_cer:
-                best_val_cer = val_cer
-                print(f"   ⭐ New best CER: {best_val_cer:.4f}")
+            if val_wer < best_val_wer:
+                best_val_wer = val_wer
+                print(f"   ⭐ New best WER: {best_val_wer:.4f}")
                 
-                # Save best model checkpoint
-                checkpoint_dir = Path("experiment_checkpoints")
+                checkpoint_dir = Path("experiment_checkpoints_scratch")
                 checkpoint_dir.mkdir(exist_ok=True)
-                
-                # Create safe filename from experiment name
-                safe_name = experiment_name.replace(" ", "_").replace("(", "").replace(")", "").replace(":", "").replace(",", "")
-                checkpoint_path = checkpoint_dir / f"{safe_name}_best.pt"
-                
-                checkpoint = {
+                safe_name = experiment_name.replace(" ", "_").replace(":", "")
+                torch.save({
                     'epoch': epoch,
                     'model_state_dict': model.state_dict(),
-                    'optimizer_state_dict': optimizer.state_dict(),
-                    'best_val_cer': best_val_cer,
-                    'val_loss': val_loss,
-                    'config': config_overrides,
-                    'experiment_name': experiment_name
-                }
-                
-                torch.save(checkpoint, checkpoint_path)
-                print(f"   💾 Saved best model to: {checkpoint_path}")
+                    'best_val_wer': best_val_wer,
+                    'config': config_overrides
+                }, checkpoint_dir / f"{safe_name}_best.pt")
         
         training_time = time.time() - start_time
         
-        # Build checkpoint path
-        safe_name = experiment_name.replace(" ", "_").replace("(", "").replace(")", "").replace(":", "").replace(",", "")
-        checkpoint_path = Path("experiment_checkpoints") / f"{safe_name}_best.pt"
-        
-        # Compile results
         results = {
             "experiment_name": experiment_name,
             "train_losses": train_losses,
             "val_cers": val_cers,
             "val_wers": val_wers,
-            "best_val_cer": best_val_cer,
+            "best_val_wer": best_val_wer,
             "final_val_cer": val_cers[-1],
-            "final_val_wer": val_wers[-1],
-            "val_cer": val_cers[-1],  # For tracker sorting
-            "val_wer": val_wers[-1],
-            "training_time_seconds": training_time,
-            "num_parameters": num_params,
-            "checkpoint_path": str(checkpoint_path)  # Save path to best model
+            "training_time_seconds": training_time
         }
         
-        # Save experiment
-        exp_id = self.tracker.save_experiment(
-            experiment_config=config_overrides,
-            results=results
-        )
-        
-        print(f"\n✅ Experiment complete! ID: {exp_id}")
-        print(f"   Best Val CER: {best_val_cer:.4f}")
-        print(f"   Final Val CER: {val_cers[-1]:.4f}")
-        print(f"   Training time: {training_time/60:.1f} minutes")
-        
+        self.tracker.save_experiment(config_overrides, results)
         return results
+
+    def validate_with_metrics(self, model, dataloader, decoder, vocab, device, encoder_type):
+        model.eval()
+        total_loss = 0
+        all_preds = []
+        all_refs = []
+        
+        with torch.no_grad():
+            for batch in dataloader:
+                features = batch['features'].to(device)
+                feature_lengths = batch['feature_lengths'].to(device)
+                targets = batch['targets'].to(device)
+                target_lengths = batch['target_lengths'].to(device)
+                
+                attention_logits, ctc_logits = model(features, feature_lengths, targets, target_lengths)
+                
+                # Determine encoder length reduction
+                enc_len = feature_lengths // 4 if encoder_type == "pyramidal" else feature_lengths
+                
+                loss = model.compute_loss(
+                    attention_logits, targets, target_lengths, ctc_logits, enc_len, vocab.pad_idx, vocab.blank_idx
+                )
+                total_loss += loss.item()
+                
+                # Decode
+                decoded_indices, _ = decoder.decode_batch(
+                    model.encoder(features, feature_lengths)[0], enc_len
+                )
+                
+                for i in range(len(targets)):
+                    pred = vocab.decode(decoded_indices[i], remove_special=True)
+                    ref = vocab.decode(targets[i].tolist(), remove_special=True)
+                    all_preds.append(pred)
+                    all_refs.append(ref)
+        
+        avg_loss = total_loss / len(dataloader)
+        cer = jiwer.cer(all_refs, all_preds)
+        
+        return avg_loss, cer, all_preds, all_refs
 
 
 def define_experiments() -> List[Dict[str, Any]]:
-    """
-    Define all experiments to run
-    
-    Returns:
-        List of (experiment_name, config_overrides) tuples
-    """
     experiments = []
     
-    # 1. Baseline (50 epochs with adapted LR)
+    # S01: Baseline (Char, Pyramidal, LSTM)
     experiments.append({
-        "name": "Baseline (No CTC, 50 epochs)",
+        "name": "S01: Baseline (Char, Pyr, LSTM)",
         "config": {
-            "use_ctc": False,
-            "num_epochs": 50,
-            "beam_size": 1,  # Greedy decoding
-            "learning_rate": 5e-4,  # 🚀 Adapted for longer training (was 1e-3)
-            "batch_size": 64  # 🚀 Optimized from 8
-        }
-    })
-    
-    # 2. Add CTC (50 epochs)
-    experiments.append({
-        "name": "With CTC (ctc_weight=0.3, 50 epochs)",
-        "config": {
-            "use_ctc": True,
-            "ctc_weight": 0.3,
-            "num_epochs": 50,
-            "beam_size": 1,
-            "learning_rate": 5e-4,  # 🚀 Adapted for longer training
-            "batch_size": 64  # 🚀 Optimized from 8
-        }
-    })
-    
-    # 3. Different CTC weight (50 epochs)
-    experiments.append({
-        "name": "With CTC (ctc_weight=0.5, 50 epochs)",
-        "config": {
-            "use_ctc": True,
-            "ctc_weight": 0.5,
-            "num_epochs": 50,
-            "beam_size": 1,
-            "learning_rate": 5e-4,  # 🚀 Adapted for longer training
-            "batch_size": 64  # 🚀 Optimized from 8
-        }
-    })
-    
-    # 4. Longer training (baseline, 100 epochs)
-    experiments.append({
-        "name": "Baseline with 100 epochs",
-        "config": {
-            "use_ctc": False,
-            "num_epochs": 100,
-            "beam_size": 1,
-            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs (lower LR)
-            "batch_size": 64  # 🚀 Optimized
-        }
-    })
-    
-    # 5. CTC with longer training (100 epochs)
-    experiments.append({
-        "name": "CTC with 100 epochs",
-        "config": {
-            "use_ctc": True,
-            "ctc_weight": 0.3,
-            "num_epochs": 100,
-            "beam_size": 1,
-            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
-            "batch_size": 64  # 🚀 Optimized
-        }
-    })
-    
-    # 6. Beam search (beam=3, 100 epochs)
-    experiments.append({
-        "name": "Baseline + Beam Search (beam=3, 100 epochs)",
-        "config": {
-            "use_ctc": False,
-            "num_epochs": 100,
-            "beam_size": 1,
-            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
-            "batch_size": 64  # 🚀 Optimized
-        }
-    })
-    
-    # 7. Beam search (beam=5, 100 epochs)
-    experiments.append({
-        "name": "Baseline + Beam Search (beam=5, 100 epochs)",
-        "config": {
-            "use_ctc": False,
-            "num_epochs": 100,
-            "beam_size": 1,
-            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
-            "batch_size": 64  # 🚀 Optimized
-        }
-    })
-    
-    # 8. CTC + Beam search (100 epochs)
-    experiments.append({
-        "name": "CTC + Beam Search (beam=5, 100 epochs)",
-        "config": {
-            "use_ctc": True,
-            "ctc_weight": 0.3,
-            "num_epochs": 100,
-            "beam_size": 1,
-            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
-            "batch_size": 64  # 🚀 Optimized
-        }
-    })
-    
-    # 9. Different learning rate
-    experiments.append({
-        "name": "Lower LR (5e-4)",
-        "config": {
-            "use_ctc": False,
-            "num_epochs": 100,
-            "beam_size": 1,
+            "token_type": "char",
+            "encoder_type": "pyramidal",
+            "decoder_type": "lstm",
             "learning_rate": 5e-4,
-            "batch_size": 64  # 🚀 Optimized
+            "num_epochs": 100
         }
     })
     
-    # 10. Higher learning rate
+    # S02: Word Vocab Feasibility
     experiments.append({
-        "name": "Higher LR (3e-3)",
+        "name": "S02: Word Vocab (Word, Pyr, LSTM)",
         "config": {
-            "use_ctc": False,
-            "num_epochs": 100,
-            "beam_size": 1,
-            "learning_rate": 3e-3,
-            "batch_size": 64  # 🚀 Optimized
+            "token_type": "word",
+            "encoder_type": "pyramidal",
+            "decoder_type": "lstm",
+            "learning_rate": 5e-4,
+            "num_epochs": 100
         }
     })
     
-    # 11. Even larger batch size (100 epochs)
+    # S03: Standard Encoder (No Time Reduction)
     experiments.append({
-        "name": "Even Larger batch (96, 100 epochs)",
+        "name": "S03: Standard Enc (Char, Std, LSTM)",
         "config": {
-            "use_ctc": False,
-            "num_epochs": 100,
-            "beam_size": 1,
-            "learning_rate": 3e-4,  # 🚀 Adapted for 100 epochs
-            "batch_size": 96  # 🚀 Test even larger
+            "token_type": "char",
+            "encoder_type": "standard",
+            "decoder_type": "lstm",
+            "learning_rate": 5e-4,
+            "num_epochs": 100
         }
     })
     
-    # 12. Best combination (200 epochs for maximum performance)
+    # S04: GRU Decoder
     experiments.append({
-        "name": "Best Combo: CTC + Beam + 200 epochs",
+        "name": "S04: GRU Decoder (Char, Pyr, GRU)",
         "config": {
-            "use_ctc": True,
-            "ctc_weight": 0.3,
-            "num_epochs": 200,
-            "beam_size": 1,
-            "learning_rate": 2e-4,  # 🚀 Lower LR for very long training (200 epochs)
-            "batch_size": 64  # 🚀 Optimized from 8
+            "token_type": "char",
+            "encoder_type": "pyramidal",
+            "decoder_type": "gru",
+            "learning_rate": 5e-4,
+            "num_epochs": 100
+        }
+    })
+    
+    # S05: High LR
+    experiments.append({
+        "name": "S05: High LR (1e-3)",
+        "config": {
+            "token_type": "char",
+            "encoder_type": "pyramidal",
+            "decoder_type": "lstm",
+            "learning_rate": 1e-3,
+            "num_epochs": 100
+        }
+    })
+    
+    # S06: Low LR
+    experiments.append({
+        "name": "S06: Low LR (1e-4)",
+        "config": {
+            "token_type": "char",
+            "encoder_type": "pyramidal",
+            "decoder_type": "lstm",
+            "learning_rate": 1e-4,
+            "num_epochs": 100
         }
     })
     
@@ -527,54 +385,27 @@ def define_experiments() -> List[Dict[str, Any]]:
 
 
 def main():
-    """Main experiment runner"""
-    print("🔬 Javanese ASR Experiment Runner")
+    print("🔬 Javanese ASR Scratch Model Deep Dive")
     print("="*80)
     
-    # Base configuration
     base_config = Config()
-    
-    # Initialize tracker
-    tracker = ExperimentTracker(results_dir="experiment_results")
-    
-    # Initialize runner
+    tracker = ExperimentTracker()
     runner = ExperimentRunner(base_config, tracker)
-    
-    # Get all experiments
     experiments = define_experiments()
     
-    print(f"\n📊 Total experiments to run: {len(experiments)}")
-    print("\nPress Enter to start, or Ctrl+C to cancel...")
-    input()
-    
-    # Run all experiments
-    for i, exp_def in enumerate(experiments, 1):
-        print(f"\n\n{'='*80}")
-        print(f"RUNNING EXPERIMENT {i}/{len(experiments)}")
-        print(f"{'='*80}\n")
-        
+    for i, exp in enumerate(experiments, 1):
+        print(f"\nRUNNING {i}/{len(experiments)}")
         try:
-            runner.run_single_experiment(
-                experiment_name=exp_def["name"],
-                config_overrides=exp_def["config"]
-            )
+            runner.run_single_experiment(exp["name"], exp["config"])
         except Exception as e:
-            print(f"\n❌ Experiment failed with error: {e}")
-            print("Continuing to next experiment...")
-            continue
-    
-    # Print summary
-    print("\n\n" + "="*80)
-    print("ALL EXPERIMENTS COMPLETE!")
-    print("="*80)
+            print(f"FAILED: {e}")
+            import traceback
+            traceback.print_exc()
+            
+    print("\n" + "="*80)
     print(tracker.get_summary())
-    
-    # Save summary to file
-    summary_file = tracker.results_dir / "summary.txt"
-    with open(summary_file, 'w') as f:
+    with open(tracker.results_dir / "summary.txt", 'w') as f:
         f.write(tracker.get_summary())
-    print(f"\n📄 Summary saved to: {summary_file}")
-
 
 if __name__ == "__main__":
     main()

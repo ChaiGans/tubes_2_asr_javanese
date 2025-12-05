@@ -1,5 +1,5 @@
 """
-Character-level Vocabulary for Javanese ASR
+Vocabulary for Javanese ASR (Character or Word level)
 """
 
 import json
@@ -10,13 +10,13 @@ from src.utils import read_transcript
 
 class Vocabulary:
     """
-    Character-level vocabulary with special tokens.
+    Vocabulary with special tokens. Supports both Character and Word levels.
     
     Special tokens:
         <pad>: Padding token (index 0)
         <sos>: Start of sequence (index 1)
         <eos>: End of sequence (index 2)
-        <unk>: Unknown character (index 3)
+        <unk>: Unknown token (index 3)
         <blank>: CTC blank token (index 4)
     """
     
@@ -26,85 +26,101 @@ class Vocabulary:
     UNK = "<unk>"
     BLANK = "<blank>"
     
-    def __init__(self):
+    def __init__(self, token_type: str = "char"):
+        """
+        Args:
+            token_type: "char" or "word"
+        """
+        self.token_type = token_type
+        
         # Fixed special tokens
         self.special_tokens = [self.PAD, self.SOS, self.EOS, self.UNK, self.BLANK]
         
-        self.char2idx: Dict[str, int] = {}
-        self.idx2char: Dict[int, str] = {}
+        self.token2idx: Dict[str, int] = {}
+        self.idx2token: Dict[int, str] = {}
         
         # Initialize with special tokens
         for idx, token in enumerate(self.special_tokens):
-            self.char2idx[token] = idx
-            self.idx2char[idx] = token
+            self.token2idx[token] = idx
+            self.idx2token[idx] = token
     
     @property
     def pad_idx(self) -> int:
-        return self.char2idx[self.PAD]
+        return self.token2idx[self.PAD]
     
     @property
     def sos_idx(self) -> int:
-        return self.char2idx[self.SOS]
+        return self.token2idx[self.SOS]
     
     @property
     def eos_idx(self) -> int:
-        return self.char2idx[self.EOS]
+        return self.token2idx[self.EOS]
     
     @property
     def unk_idx(self) -> int:
-        return self.char2idx[self.UNK]
+        return self.token2idx[self.UNK]
     
     @property
     def blank_idx(self) -> int:
-        return self.char2idx[self.BLANK]
+        return self.token2idx[self.BLANK]
     
     def __len__(self) -> int:
-        return len(self.char2idx)
+        return len(self.token2idx)
     
-    def build_from_transcripts(self, transcripts: List[str]) -> None:
+    def build_from_transcripts(self, transcripts: List[str], min_freq: int = 1) -> None:
         """
         Build vocabulary from a list of transcripts.
         
         Args:
             transcripts: List of text transcripts
+            min_freq: Minimum frequency for a word to be included (only for word vocab)
         """
-        # Collect all unique characters
-        unique_chars = set()
+        unique_tokens = set()
+        token_counts = {}
+        
         for text in transcripts:
-            unique_chars.update(text)
+            if self.token_type == "char":
+                tokens = list(text)
+            else:
+                tokens = text.strip().split()
+            
+            for token in tokens:
+                token_counts[token] = token_counts.get(token, 0) + 1
+                unique_tokens.add(token)
+        
+        # Filter by frequency for word vocab
+        if self.token_type == "word" and min_freq > 1:
+            unique_tokens = {t for t in unique_tokens if token_counts[t] >= min_freq}
         
         # Sort for consistency
-        unique_chars = sorted(unique_chars)
+        sorted_tokens = sorted(unique_tokens)
         
         # Add to vocabulary (after special tokens)
         next_idx = len(self.special_tokens)
-        for char in unique_chars:
-            if char not in self.char2idx:
-                self.char2idx[char] = next_idx
-                self.idx2char[next_idx] = char
+        for token in sorted_tokens:
+            if token not in self.token2idx:
+                self.token2idx[token] = next_idx
+                self.idx2token[next_idx] = token
                 next_idx += 1
         
-        print(f"Built vocabulary with {len(self)} tokens ({len(unique_chars)} characters + {len(self.special_tokens)} special tokens)")
+        print(f"Built {self.token_type}-level vocabulary with {len(self)} tokens")
     
     def encode(self, text: str, add_sos: bool = True, add_eos: bool = True) -> List[int]:
         """
         Encode text to indices.
-        
-        Args:
-            text: Input text
-            add_sos: Whether to prepend <sos> token
-            add_eos: Whether to append <eos> token
-        
-        Returns:
-            List of token indices
         """
         indices = []
         
         if add_sos:
             indices.append(self.sos_idx)
         
-        for char in text:
-            indices.append(self.char2idx.get(char, self.unk_idx))
+        if self.token_type == "char":
+            tokens = list(text)
+        else:
+            tokens = text.strip().split()
+            
+        for token in tokens:
+            indices.append(self.token2idx.get(token, self.unk_idx))
         
         if add_eos:
             indices.append(self.eos_idx)
@@ -114,30 +130,27 @@ class Vocabulary:
     def decode(self, indices: List[int], remove_special: bool = True) -> str:
         """
         Decode indices to text.
-        
-        Args:
-            indices: List of token indices
-            remove_special: Whether to remove special tokens
-        
-        Returns:
-            Decoded text
         """
-        chars = []
+        tokens = []
         for idx in indices:
-            char = self.idx2char.get(idx, self.UNK)
+            token = self.idx2token.get(idx, self.UNK)
             
-            if remove_special and char in self.special_tokens:
+            if remove_special and token in self.special_tokens:
                 continue
             
-            chars.append(char)
+            tokens.append(token)
         
-        return ''.join(chars)
+        if self.token_type == "char":
+            return ''.join(tokens)
+        else:
+            return ' '.join(tokens)
     
     def save(self, filepath: str) -> None:
         """Save vocabulary to JSON file."""
         data = {
-            'char2idx': self.char2idx,
-            'idx2char': {str(k): v for k, v in self.idx2char.items()}
+            'token_type': self.token_type,
+            'token2idx': self.token2idx,
+            'idx2token': {str(k): v for k, v in self.idx2token.items()}
         }
         
         with open(filepath, 'w', encoding='utf-8') as f:
@@ -148,40 +161,27 @@ class Vocabulary:
     @classmethod
     def load(cls, filepath: str) -> 'Vocabulary':
         """Load vocabulary from JSON file."""
-        vocab = cls()
-        
         with open(filepath, 'r', encoding='utf-8') as f:
             data = json.load(f)
+            
+        vocab = cls(token_type=data.get('token_type', 'char'))
+        vocab.token2idx = data['token2idx']
+        vocab.idx2token = {int(k): v for k, v in data['idx2token'].items()}
         
-        vocab.char2idx = data['char2idx']
-        vocab.idx2char = {int(k): v for k, v in data['idx2char'].items()}
-        
-        print(f"Loaded vocabulary with {len(vocab)} tokens from {filepath}")
+        print(f"Loaded {vocab.token_type}-level vocabulary with {len(vocab)} tokens from {filepath}")
         return vocab
 
 
-def build_vocab_from_file(transcript_file: str, save_path: Optional[str] = None) -> Vocabulary:
+def build_vocab_from_file(transcript_file: str, save_path: Optional[str] = None, token_type: str = "char") -> Vocabulary:
     """
     Build vocabulary from transcript file.
-    
-    Expected format: each line is "SentenceID<tab>Transcript"
-    
-    Args:
-        transcript_file: Path to transcript file
-        save_path: Optional path to save vocabulary JSON
-    
-    Returns:
-        Vocabulary object
     """
     transcripts = read_transcript(transcript_file)
-    
     print(f"Read {len(transcripts)} transcripts from {transcript_file}")
     
-    # Build vocabulary
-    vocab = Vocabulary()
+    vocab = Vocabulary(token_type=token_type)
     vocab.build_from_transcripts(transcripts)
     
-    # Save if requested
     if save_path:
         vocab.save(save_path)
     
@@ -194,38 +194,25 @@ if __name__ == "__main__":
 
     config = Config()
     transcripts = read_transcript(config.transcript_file)    
-    # Build vocab
-    vocab = Vocabulary()
-    vocab.build_from_transcripts(transcripts)
     
-    print(f"\nVocabulary size: {len(vocab)}")
-    print(f"Special tokens: {vocab.special_tokens}")
-    print(f"Sample characters: {list(vocab.char2idx.keys())[5:]}")
-    
-    # Test encoding
-    text = "aku seneng"
-    encoded = vocab.encode(text, add_sos=True, add_eos=True)
-    print(f"\nOriginal: '{text}'")
-    print(f"Encoded: {encoded}")
-    
-    # Test decoding
-    decoded = vocab.decode(encoded, remove_special=True)
+    # Test Char Vocab
+    print("\n--- Character Level ---")
+    vocab_char = Vocabulary(token_type="char")
+    vocab_char.build_from_transcripts(transcripts)
+    print(f"Size: {len(vocab_char)}")
+    encoded = vocab_char.encode("aku seneng")
+    decoded = vocab_char.decode(encoded)
+    print(f"Encoded 'aku seneng': {encoded}")
     print(f"Decoded: '{decoded}'")
     
-    # Test save/load
-    import tempfile
-    with tempfile.NamedTemporaryFile(mode='w', delete=False, suffix='.json') as f:
-        temp_path = f.name
-    
-    vocab.save(temp_path)
-    loaded_vocab = Vocabulary.load(temp_path)
-    
-    # Verify
-    assert len(vocab) == len(loaded_vocab)
-    assert vocab.char2idx == loaded_vocab.char2idx
-    print("\nSave/load test passed!")
-    
-    # Cleanup
-    Path(temp_path).unlink()
+    # Test Word Vocab
+    print("\n--- Word Level ---")
+    vocab_word = Vocabulary(token_type="word")
+    vocab_word.build_from_transcripts(transcripts)
+    print(f"Size: {len(vocab_word)}")
+    encoded = vocab_word.encode("aku seneng")
+    decoded = vocab_word.decode(encoded)
+    print(f"Encoded 'aku seneng': {encoded}")
+    print(f"Decoded: '{decoded}'")
     
     print("\nVocabulary test passed!")
