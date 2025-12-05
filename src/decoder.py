@@ -42,8 +42,9 @@ class GreedyDecoder:
         
         batch_size = encoder_outputs.size(0)
         encoder_dim = encoder_outputs.size(2)
+        enc_time = encoder_outputs.size(1)
         
-        # Initialize decoder state
+        # Initialize decoder state based on RNN type
         if self.model.decoder.rnn_type == "gru":
             decoder_state = torch.zeros(1, batch_size, self.model.decoder.decoder_dim, device=self.device)
         else:
@@ -52,14 +53,13 @@ class GreedyDecoder:
             decoder_state = (h0, c0)
         
         # Initialize attention
-        enc_time = encoder_outputs.size(1)
-        prev_attention_weights = torch.ones(batch_size, enc_time, device=self.device) / enc_time
+        prev_attn = torch.ones(batch_size, enc_time, device=self.device) / enc_time
         
         # Initialize context
         prev_context = torch.zeros(batch_size, encoder_dim, device=self.device)
         
         # Create encoder mask
-        encoder_mask = self._create_mask(enc_time, encoder_lengths)
+        mask = self._create_mask(enc_time, encoder_lengths)
         
         # Start with <sos> token
         prev_token = torch.full((batch_size,), self.vocab.sos_idx, dtype=torch.long, device=self.device)
@@ -70,14 +70,14 @@ class GreedyDecoder:
         
         # Decode step by step
         for step in range(self.max_len):
-            # One decoding step
-            logits, prev_context, decoder_state, prev_attention_weights = self.model.decoder.forward_step(
+            # One decoding step - using correct argument names from model.py
+            logits, prev_context, decoder_state, prev_attn = self.model.decoder.forward_step(
                 prev_token=prev_token,
                 prev_context=prev_context,
                 decoder_state=decoder_state,
                 encoder_outputs=encoder_outputs,
-                prev_attention_weights=prev_attention_weights,
-                encoder_mask=encoder_mask
+                prev_attn=prev_attn,
+                mask=mask
             )
             
             # Greedy selection: argmax
@@ -204,7 +204,7 @@ class BeamSearchDecoder:
         encoder_dim = encoder_outputs.size(2)
         enc_time = encoder_outputs.size(1)
         
-        # Initialize beams: (score, tokens, decoder_state, context, attention_weights, is_finished)
+        # Initialize decoder state based on RNN type
         if self.model.decoder.rnn_type == "gru":
             initial_state = torch.zeros(1, 1, self.model.decoder.decoder_dim, device=self.device)
         else:
@@ -213,12 +213,12 @@ class BeamSearchDecoder:
             initial_state = (h0, c0)
             
         initial_context = torch.zeros(1, encoder_dim, device=self.device)
-        initial_attention = torch.ones(1, enc_time, device=self.device) / enc_time
+        initial_attn = torch.ones(1, enc_time, device=self.device) / enc_time
         
-        encoder_mask = self._create_mask(enc_time, encoder_lengths)
+        mask = self._create_mask(enc_time, encoder_lengths)
         
         beams = [
-            (0.0, [self.vocab.sos_idx], initial_state, initial_context, initial_attention, False)
+            (0.0, [self.vocab.sos_idx], initial_state, initial_context, initial_attn, False)
         ]
         
         completed = []
@@ -227,7 +227,7 @@ class BeamSearchDecoder:
         for step in range(self.max_len):
             candidates = []
             
-            for score, tokens, decoder_state, context, attention_weights, is_finished in beams:
+            for score, tokens, decoder_state, context, attn, is_finished in beams:
                 if is_finished:
                     completed.append((score, tokens))
                     continue
@@ -235,14 +235,14 @@ class BeamSearchDecoder:
                 # Get last token
                 prev_token = torch.tensor([tokens[-1]], dtype=torch.long, device=self.device)
                 
-                # Decode one step
-                logits, new_context, new_state, new_attention = self.model.decoder.forward_step(
+                # Decode one step - using correct argument names
+                logits, new_context, new_state, new_attn = self.model.decoder.forward_step(
                     prev_token=prev_token,
                     prev_context=context,
                     decoder_state=decoder_state,
                     encoder_outputs=encoder_outputs,
-                    prev_attention_weights=attention_weights,
-                    encoder_mask=encoder_mask
+                    prev_attn=attn,
+                    mask=mask
                 )
                 
                 # Get log probabilities
@@ -250,8 +250,8 @@ class BeamSearchDecoder:
                 
                 # Get top-k tokens
                 topk_log_probs, topk_indices = log_probs.topk(self.beam_size, dim=-1)
-                topk_log_probs = topk_log_probs.squeeze(0)  # [beam_size]
-                topk_indices = topk_indices.squeeze(0)  # [beam_size]
+                topk_log_probs = topk_log_probs.squeeze(0)
+                topk_indices = topk_indices.squeeze(0)
                 
                 # Expand beams
                 for k in range(self.beam_size):
@@ -269,7 +269,7 @@ class BeamSearchDecoder:
                         completed.append((normalized_score, new_tokens))
                     else:
                         candidates.append((
-                            new_score, new_tokens, new_state, new_context, new_attention, False
+                            new_score, new_tokens, new_state, new_context, new_attn, False
                         ))
             
             # Keep top beam_size candidates
