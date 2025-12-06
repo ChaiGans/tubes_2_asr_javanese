@@ -183,8 +183,6 @@ def main():
         print("Creating speaker-disjoint split...")
         split_dict = create_speaker_disjoint_split(
             transcript_file=cfg.transcript_file,
-            test_speaker_ratio=0.2,  # 20% speakers for test
-            val_utterance_ratio=0.1,  # 10% utterances for validation
             seed=cfg.seed,
             save_split_info=True,
             split_info_path=cfg.split_info_path

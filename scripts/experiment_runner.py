@@ -151,8 +151,6 @@ class ExperimentRunner:
             print("Creating speaker-disjoint split...")
             split_dict = create_speaker_disjoint_split(
                 transcript_file=config.transcript_file,
-                test_speaker_ratio=0.2,
-                val_utterance_ratio=0.1,
                 seed=config.seed,
                 save_split_info=True,
                 split_info_path=config.split_info_path

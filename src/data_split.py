@@ -1,11 +1,13 @@
 """
-Speaker-disjoint split with audio validation and flexible path matching.
+Hybrid speaker-disjoint (test) + utterance-level (train/val) split with audio validation.
 
 Logic:
 - Keep only utterances that have a readable WAV file.
 - Parse gender/native from ID pattern: speakerXX_m_n_uttYY (m/f, n/nn).
-- Test speakers: 10% native + 10% non-native (by speaker).
-- From remaining speakers, assign train speakers until ~70% of total utterances is reached; the rest go to val.
+- Test set: 20% of speakers (7 native + 7 non-native = 14 speakers), speaker-disjoint.
+- Train/Val: utterance-level random split from remaining 80% speakers.
+  - 87.5% of remaining utterances go to train.
+  - 12.5% of remaining utterances go to val.
 - Save split lists to JSON (default: data/split_info.json) and an optional CSV view.
 """
 
@@ -60,10 +62,11 @@ def parse_gender_native(utt_id: str) -> Tuple[Optional[str], Optional[bool]]:
 
 def split_speakers(df: pd.DataFrame, seed: int = 42) -> Tuple[pd.DataFrame, pd.DataFrame, pd.DataFrame]:
     """
-    Speaker-disjoint split:
-      - Test speakers: 10% native + 10% non-native speakers.
-      - Train speakers: enough from remaining to cover ~70% of utterances.
-      - Val speakers: the rest of the remaining speakers.
+    Hybrid split:
+      - Test set: 20% of speakers (7 native + 7 non-native = 14 speakers), speaker-disjoint.
+      - Train/Val: utterance-level split from remaining 80% speakers.
+        - 70% of remaining utterances go to train.
+        - 10% of remaining utterances go to val (ratio 7:1).
     """
     rng = random.Random(seed)
     df = df.copy()
@@ -72,42 +75,47 @@ def split_speakers(df: pd.DataFrame, seed: int = 42) -> Tuple[pd.DataFrame, pd.D
     native_speakers = sorted(df[df["Native"] == True]["Speaker"].unique().tolist())
     non_native_speakers = sorted(df[df["Native"] == False]["Speaker"].unique().tolist())
 
-    # Select test speakers
-    n_native_test = max(1, int(len(native_speakers) * 0.10)) if native_speakers else 0
-    n_non_native_test = max(1, int(len(non_native_speakers) * 0.10)) if non_native_speakers else 0
+    # Select exactly 7 native and 7 non-native speakers for test set (speaker-disjoint)
+    n_total_test_speakers = (len(native_speakers) + len(non_native_speakers)) * 0.2
+    n_test_native = 0.5*n_total_test_speakers
+    n_test_non_native = 0.5*n_total_test_speakers
 
-    test_native_spk = rng.sample(native_speakers, n_native_test) if n_native_test else []
-    test_non_native_spk = rng.sample(non_native_speakers, n_non_native_test) if n_non_native_test else []
+    print(n_total_test_speakers, n_test_native, n_test_non_native)
+    
+    if len(native_speakers) < n_test_native:
+        raise ValueError(f"Not enough native speakers: have {len(native_speakers)}, need {n_test_native}")
+    if len(non_native_speakers) < n_test_non_native:
+        raise ValueError(f"Not enough non-native speakers: have {len(non_native_speakers)}, need {n_test_non_native}")
+
+    test_native_spk = rng.sample(native_speakers, int(n_test_native))
+    test_non_native_spk = rng.sample(non_native_speakers, int(n_test_non_native))
     test_speakers = set(test_native_spk + test_non_native_spk)
 
-    # Remaining speakers for train+val
-    remain_speakers = [s for s in df["Speaker"].unique() if s not in test_speakers]
-    rng.shuffle(remain_speakers)
-
-    total_rows = len(df)
-    target_train_rows = int(total_rows * 0.70)
-    train_speakers = set()
-    current_total = 0
-
-    for spk in remain_speakers:
-        spk_rows = len(df[df["Speaker"] == spk])
-        if current_total + spk_rows <= target_train_rows:
-            train_speakers.add(spk)
-            current_total += spk_rows
-
-    val_speakers = set(remain_speakers) - train_speakers
-
-    train_df = df[df["Speaker"].isin(train_speakers)].copy()
-    val_df = df[df["Speaker"].isin(val_speakers)].copy()
+    # Test set: all utterances from test speakers (speaker-disjoint)
     test_df = df[df["Speaker"].isin(test_speakers)].copy()
+
+    # Remaining utterances from non-test speakers
+    remain_df = df[~df["Speaker"].isin(test_speakers)].copy()
+
+    # Utterance-level split for train/val (70% train, 10% val → ratio 7:1)
+    # From remaining utterances: 87.5% train, 12.5% val
+    remain_indices = remain_df.index.tolist()
+    rng.shuffle(remain_indices)
+
+    n_remain = len(remain_indices)
+    n_train = int(n_remain * 0.875)  # 70 / (70 + 10) = 0.875
+    
+    train_indices = remain_indices[:n_train]
+    val_indices = remain_indices[n_train:]
+
+    train_df = df.loc[train_indices].copy()
+    val_df = df.loc[val_indices].copy()
 
     return train_df, val_df, test_df
 
 
 def create_speaker_disjoint_split(
     transcript_file: str,
-    test_speaker_ratio: float = 0.2,  # kept for signature compatibility; actual split uses 10% native + 10% non-native speakers
-    val_utterance_ratio: float = 0.1,  # unused
     seed: int = 42,
     save_split_info: bool = True,
     split_info_path: str = "data/split_info.json",
@@ -183,10 +191,11 @@ def create_speaker_disjoint_split(
     if save_split_info:
         split_info = {
             "seed": seed,
-            "method": "speaker_disjoint",
-            "test_native_frac": 0.10,
-            "test_non_native_frac": 0.10,
-            "target_train_frac": 0.70,
+            "method": "hybrid_speaker_utterance",
+            "description": "Test: speaker-disjoint (7 native + 7 non-native). Train/Val: utterance-level split (87.5%/12.5%).",
+            "test_native_speakers": 7,
+            "test_non_native_speakers": 7,
+            "train_val_ratio": "87.5/12.5",
             "audio_dir": str(audio_root),
             "split": split_dict,
         }
