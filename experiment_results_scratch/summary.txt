@@ -7,25 +7,45 @@ QUICK OVERVIEW (sorted by WER):
 ----------------------------------------------------------------------------------------------------
 ID   Name                                WER        CER        Time(m)   
 ----------------------------------------------------------------------------------------------------
+17   V5-02: Char + CTC Joint             0.7362     0.4985     36.9      
 7    V3-02: Word + GRU Decoder           0.9224     0.7050     5.9       
 8    V3-03: Word + Larger Model          0.9224     0.7059     7.3       
 14   V4-03: Word + CTC Joint             0.9382     0.7716     15.7      
 13   V4-02: Word + GRU Decoder           0.9396     0.7512     15.1      
 15   V4-06: Word + Larger Model          0.9411     0.7586     15.8      
+18   V5-03: Word + Larger Hidden         0.9463     0.7892     15.9      
 2    S02: Word Vocab (Word, Pyr, LSTM)   0.9483     0.7561     5.9       
 9    V3-04: Word + CTC Joint Training    0.9483     0.7713     6.1       
 11   V3-06: Word + More Epochs           0.9483     0.7384     9.0       
 6    V3-01: Word + Higher LR             0.9497     0.7615     5.9       
 12   V4-01: Char + Deeper Enc + Longer T 0.9590     0.7692     46.2      
+19   V5-04: Char + Longer, Lower LR      0.9791     0.7858     54.8      
 3    S03: GRU Decoder (Char, Pyr, GRU)   0.9895     0.7721     12.3      
 4    S04: High LR (1e-3)                 0.9972     0.8354     12.4      
 1    S01: Baseline (Char, Pyr, LSTM)     0.9979     0.7545     12.3      
+16   V5-01: Char + Standard Encoder      0.9993     0.8576     39.8      
 5    S05: Low LR (1e-4)                  1.0307     0.7923     12.5      
 10   V3-05: Char + Lower Dropout         1.0503     0.8148     12.4      
 
 
 DETAILED CONFIGURATIONS:
 ====================================================================================================
+
+[Experiment 17] V5-02: Char + CTC Joint
+------------------------------------------------------------
+  Model:
+    token_type:      char
+    encoder_type:    pyramidal
+    decoder_type:    lstm
+  Training:
+    learning_rate:   0.0005
+    num_epochs:      120
+    batch_size:      32
+    dropout:         0.3
+  Results:
+    best_val_wer:    0.736214605067064
+    final_val_cer:   0.4984520123839009
+    training_time:   36.9 min
 
 [Experiment 7] V3-02: Word + GRU Decoder
 ------------------------------------------------------------
@@ -107,6 +127,22 @@ DETAILED CONFIGURATIONS:
     final_val_cer:   0.7586377708978328
     training_time:   15.8 min
 
+[Experiment 18] V5-03: Word + Larger Hidden
+------------------------------------------------------------
+  Model:
+    token_type:      word
+    encoder_type:    pyramidal
+    decoder_type:    lstm
+  Training:
+    learning_rate:   0.0006
+    num_epochs:      120
+    batch_size:      32
+    dropout:         0.3
+  Results:
+    best_val_wer:    0.9463487332339792
+    final_val_cer:   0.7892260061919505
+    training_time:   15.9 min
+
 [Experiment 2] S02: Word Vocab (Word, Pyr, LSTM)
 ------------------------------------------------------------
   Model:
@@ -187,6 +223,22 @@ DETAILED CONFIGURATIONS:
     final_val_cer:   0.7691640866873065
     training_time:   46.2 min
 
+[Experiment 19] V5-04: Char + Longer, Lower LR
+------------------------------------------------------------
+  Model:
+    token_type:      char
+    encoder_type:    pyramidal
+    decoder_type:    lstm
+  Training:
+    learning_rate:   0.0003
+    num_epochs:      180
+    batch_size:      32
+    dropout:         0.3
+  Results:
+    best_val_wer:    0.9791356184798807
+    final_val_cer:   0.7857585139318886
+    training_time:   54.8 min
+
 [Experiment 3] S03: GRU Decoder (Char, Pyr, GRU)
 ------------------------------------------------------------
   Model:
@@ -234,6 +286,22 @@ DETAILED CONFIGURATIONS:
     best_val_wer:    0.9979035639412998
     final_val_cer:   0.7544958811927138
     training_time:   12.3 min
+
+[Experiment 16] V5-01: Char + Standard Encoder
+------------------------------------------------------------
+  Model:
+    token_type:      char
+    encoder_type:    standard
+    decoder_type:    lstm
+  Training:
+    learning_rate:   0.0005
+    num_epochs:      120
+    batch_size:      32
+    dropout:         0.3
+  Results:
+    best_val_wer:    0.9992548435171386
+    final_val_cer:   0.8575851393188855
+    training_time:   39.8 min
 
 [Experiment 5] S05: Low LR (1e-4)
 ------------------------------------------------------------
