@@ -1,0 +1,82 @@
+{
+  "name": "Scratch Model Expansion v4",
+  "description": "Follow-up experiments focusing on stronger capacity, CTC variants, and decoder choice.",
+  "created_at": "2025-12-06",
+  "experiments": [
+    {
+      "name": "V4-01: Char + Deeper Enc + Longer Train",
+      "description": "Char vocab, pyramidal encoder with more hidden units and longer training.",
+      "config": {
+        "token_type": "char",
+        "encoder_type": "pyramidal",
+        "decoder_type": "lstm",
+        "encoder_hidden_size": 256,
+        "decoder_dim": 512,
+        "attention_dim": 256,
+        "learning_rate": 5e-4,
+        "num_epochs": 150
+      }
+    },
+    {
+      "name": "V4-02: Word + GRU Decoder",
+      "description": "Word vocab with GRU decoder, moderate LR.",
+      "config": {
+        "token_type": "word",
+        "encoder_type": "pyramidal",
+        "decoder_type": "gru",
+        "learning_rate": 7e-4,
+        "num_epochs": 120
+      }
+    },
+    {
+      "name": "V4-03: Word + CTC Joint",
+      "description": "Word vocab with joint CTC-attention for improved alignment.",
+      "config": {
+        "token_type": "word",
+        "encoder_type": "pyramidal",
+        "decoder_type": "lstm",
+        "learning_rate": 5e-4,
+        "num_epochs": 120,
+        "use_ctc": true,
+        "ctc_weight": 0.3
+      }
+    },
+    {
+      "name": "V4-04: Char + Low Dropout",
+      "description": "Char vocab with reduced dropout to see effect on regularization.",
+      "config": {
+        "token_type": "char",
+        "encoder_type": "pyramidal",
+        "decoder_type": "lstm",
+        "learning_rate": 5e-4,
+        "num_epochs": 100,
+        "dropout": 0.1
+      }
+    },
+    {
+      "name": "V4-05: Word + Higher LR",
+      "description": "Word vocab with slightly higher LR for faster convergence.",
+      "config": {
+        "token_type": "word",
+        "encoder_type": "pyramidal",
+        "decoder_type": "lstm",
+        "learning_rate": 1e-3,
+        "num_epochs": 100
+      }
+    },
+    {
+      "name": "V4-06: Word + Larger Model",
+      "description": "Word vocab with larger hidden sizes for capacity.",
+      "config": {
+        "token_type": "word",
+        "encoder_type": "pyramidal",
+        "decoder_type": "lstm",
+        "encoder_hidden_size": 256,
+        "decoder_dim": 512,
+        "attention_dim": 256,
+        "learning_rate": 5e-4,
+        "num_epochs": 120
+      }
+    }
+  ]
+}
