@@ -1,0 +1,159 @@
+{
+    "name": "Scratch Model Experiments (Combined)",
+    "description": "All experiments for Javanese ASR scratch model - combined from v1, v2, and v3",
+    "created_at": "2025-12-07",
+    "notes": [
+        "v1: Initial experiments exploring different model configurations",
+        "v2: Standard encoder experiment",
+        "v3: Based on v1 results - Word vocab achieved best WER (0.9483)",
+        "Best v1 result: Word vocab WER=0.9483",
+        "Char+GRU was second best: WER=0.9895",
+        "High LR (1e-3) worked fine, Low LR (1e-4) was worst"
+    ],
+    "experiments": [
+        {
+            "name": "S01: Baseline (Char, Pyr, LSTM)",
+            "source": "v1",
+            "config": {
+                "token_type": "char",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 100
+            }
+        },
+        {
+            "name": "S02: Word Vocab (Word, Pyr, LSTM)",
+            "source": "v1",
+            "config": {
+                "token_type": "word",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 100
+            }
+        },
+        {
+            "name": "S03: GRU Decoder (Char, Pyr, GRU)",
+            "source": "v1",
+            "config": {
+                "token_type": "char",
+                "encoder_type": "pyramidal",
+                "decoder_type": "gru",
+                "learning_rate": 5e-4,
+                "num_epochs": 100
+            }
+        },
+        {
+            "name": "S04: High LR (1e-3)",
+            "source": "v1",
+            "config": {
+                "token_type": "char",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 1e-3,
+                "num_epochs": 100
+            }
+        },
+        {
+            "name": "S05: Low LR (1e-4)",
+            "source": "v1",
+            "config": {
+                "token_type": "char",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 1e-4,
+                "num_epochs": 100
+            }
+        },
+        {
+            "name": "S06: Standard Enc (Char, Std, LSTM)",
+            "source": "v2",
+            "config": {
+                "token_type": "char",
+                "encoder_type": "standard",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 100
+            }
+        },
+        {
+            "name": "V3-01: Word + Higher LR",
+            "source": "v3",
+            "description": "Word vocab was best; test with higher learning rate",
+            "config": {
+                "token_type": "word",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 1e-3,
+                "num_epochs": 100
+            }
+        },
+        {
+            "name": "V3-02: Word + GRU Decoder",
+            "source": "v3",
+            "description": "Combine best vocab (word) with second-best decoder (GRU)",
+            "config": {
+                "token_type": "word",
+                "encoder_type": "pyramidal",
+                "decoder_type": "gru",
+                "learning_rate": 5e-4,
+                "num_epochs": 100
+            }
+        },
+        {
+            "name": "V3-03: Word + Larger Model",
+            "source": "v3",
+            "description": "Word vocab with larger hidden sizes for more capacity",
+            "config": {
+                "token_type": "word",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 100,
+                "encoder_hidden_size": 256,
+                "decoder_dim": 512,
+                "attention_dim": 256
+            }
+        },
+        {
+            "name": "V3-04: Word + CTC Joint Training",
+            "source": "v3",
+            "description": "Enable CTC for better alignment learning with word vocab",
+            "config": {
+                "token_type": "word",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 100,
+                "use_ctc": true,
+                "ctc_weight": 0.3
+            }
+        },
+        {
+            "name": "V3-05: Char + Lower Dropout",
+            "source": "v3",
+            "description": "Best char result (baseline) had good CER; try less regularization",
+            "config": {
+                "token_type": "char",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 100,
+                "dropout": 0.1
+            }
+        },
+        {
+            "name": "V3-06: Word + More Epochs",
+            "source": "v3",
+            "description": "Word vocab converged fast (5.9min vs 12min); try longer training",
+            "config": {
+                "token_type": "word",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 150
+            }
+        }
+    ]
+}
