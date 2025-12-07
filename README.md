@@ -81,7 +81,7 @@ python train.py
 
 #### Custom Configuration
 Edit `config.py` to adjust hyperparameters:
-- `batch_size`: Batch size (default: 8)
+- `batch_size`: Batch size (default: 32)
 - `num_epochs`: Number of training epochs (default: 100)
 - `learning_rate`: Learning rate (default: 1e-3)
 - `use_ctc`: Enable joint CTC+attention (default: False)
@@ -151,7 +151,7 @@ python inference.py --audio audio.wav --decoder beam --beam_size 10
 - **Optimizer**: Adam (lr=1e-3)
 - **Gradient Clipping**: Norm 5.0
 - **Teacher Forcing**: 1.0 (always use ground truth)
-- **Batch Size**: 8
+- **Batch Size**: 32
 - **Validation Split**: 10%
 
 ## Example Training Output

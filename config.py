@@ -4,7 +4,6 @@ Configuration for Javanese ASR Training
 
 from dataclasses import dataclass
 
-
 @dataclass
 class Config:
     """Configuration for model training and architecture."""
@@ -15,20 +14,20 @@ class Config:
     vocab_path: str = "data/vocab.json"
     split_info_path: str = "data/split_info.json"
     
-    # Training - Reduced for GPU memory
-    batch_size: int = 32  # Reduced from 64
-    num_epochs: int = 2
+    # Training
+    batch_size: int = 32
+    num_epochs: int = 100
     learning_rate: float = 1e-3
     grad_clip_norm: float = 5.0
     teacher_forcing_ratio: float = 1.0
     
-    # Model architecture - Reduced for GPU memory
+    # Model architecture
     input_dim: int = 80  # Log-mel features
-    encoder_hidden_size: int = 128  # Reduced from 256
+    encoder_hidden_size: int = 128
     encoder_num_layers: int = 3
-    decoder_dim: int = 256  # Reduced from 512
-    attention_dim: int = 128  # Reduced from 256
-    embedding_dim: int = 64  # Reduced from 128
+    decoder_dim: int = 256
+    attention_dim: int = 128
+    embedding_dim: int = 64
     dropout: float = 0.3
     
     # CTC settings
@@ -64,8 +63,8 @@ class Config:
     # Random seed
     seed: int = 42
     
-    # 🚀 GPU Optimization Parameters (NEW!)
-    num_workers: int = 6  # Parallel data loading (was 0)
+    # GPU Optimization Parameters
+    num_workers: int = 6  # Parallel data loading
     pin_memory: bool = True  # Faster CPU→GPU transfers
     prefetch_factor: int = 2  # Prefetch batches ahead
     persistent_workers: bool = True  # Reuse worker processes
