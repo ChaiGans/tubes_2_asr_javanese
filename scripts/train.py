@@ -32,22 +32,15 @@ def train_one_epoch(
     
     pbar = tqdm(dataloader, desc=f"Epoch {epoch} [Train]")
     for batch in pbar:
-        # Move to device
         features = batch['features'].to(device)
         feature_lengths = batch['feature_lengths'].to(device)
         targets = batch['targets'].to(device)
         target_lengths = batch['target_lengths'].to(device)
         
-        # Scheduled Sampling: gradually reduce teacher forcing
-        # Start at 1.0, decay to 0.5 over ~50 epochs
-        # This forces the model to learn from its own predictions
         tf_ratio = max(0.5, 1.0 - (epoch * 0.01))
         
-        # Forward pass with scheduled teacher forcing
-        # model.forward returns (attention_logits, ctc_logits, encoder_lengths)
         attention_logits, ctc_logits, encoder_lengths = model(features, feature_lengths, targets, teacher_forcing_ratio=tf_ratio)
         
-        # Compute loss using correct encoder_lengths from encoder
         loss = model.compute_loss(
             attention_logits=attention_logits,
             targets=targets,
