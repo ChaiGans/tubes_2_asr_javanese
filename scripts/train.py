@@ -42,8 +42,13 @@ def train_one_epoch(
         targets = batch['targets'].to(device)
         target_lengths = batch['target_lengths'].to(device)
         
-        # Standard FP32 training
-        attention_logits, ctc_logits = model(features, feature_lengths, targets, teacher_forcing_ratio=1.0)
+        # Scheduled Sampling: gradually reduce teacher forcing
+        # Start at 1.0, decay to 0.5 over ~50 epochs
+        # This forces the model to learn from its own predictions
+        tf_ratio = max(0.5, 1.0 - (epoch * 0.01))
+        
+        # Forward pass with scheduled teacher forcing
+        attention_logits, ctc_logits = model(features, feature_lengths, targets, teacher_forcing_ratio=tf_ratio)
         
         # Compute encoder lengths based on encoder type
         # Pyramidal: 2 levels of 2x reduction = 4x total reduction
