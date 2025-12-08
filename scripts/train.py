@@ -5,11 +5,11 @@ Training script for Javanese ASR with LAS-style seq2seq model
 import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
-from pathlib
 from tqdm import tqdm
 
 from src.vocab import Vocabulary
 from src.metrics import compute_batch_cer
+import jiwer
 
 def train_one_epoch(
     model: nn.Module,
@@ -79,27 +79,6 @@ def train_one_epoch(
     
     return total_loss / num_batches
 
-
-@torch.no_grad()
-def validate(
-    model: nn.Module,
-    dataloader: DataLoader,
-    decoder,
-    vocab,
-    device: str,
-    encoder_type: str = "pyramidal"
-) -> tuple:
-    """
-    Simple validation function that returns (loss, cer).
-    
-    For WER and predictions/references, use validate_with_metrics instead.
-    """
-    avg_loss, avg_cer, _, _ = validate_with_metrics(
-        model, dataloader, decoder, vocab, device, encoder_type
-    )
-    return avg_loss, avg_cer
-
-
 @torch.no_grad()
 def validate_with_metrics(
     model: nn.Module,
@@ -121,7 +100,7 @@ def validate_with_metrics(
         encoder_type: "pyramidal" or "standard" (affects encoder length calculation)
     
     Returns:
-        (average_loss, average_cer, predictions, references)
+        (average_loss, average_cer, average_wer, predictions, references)
     """
     model.eval()
     total_loss = 0.0
@@ -171,4 +150,7 @@ def validate_with_metrics(
     avg_loss = total_loss / num_batches if num_batches > 0 else 0.0
     avg_cer = total_cer / num_samples if num_samples > 0 else 0.0
     
-    return avg_loss, avg_cer, all_predictions, all_references
+    # Compute WER using jiwer
+    avg_wer = jiwer.wer(all_references, all_predictions) if all_references else 0.0
+    
+    return avg_loss, avg_cer, avg_wer, all_predictions, all_references

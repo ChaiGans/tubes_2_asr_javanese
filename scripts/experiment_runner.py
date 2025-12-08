@@ -83,7 +83,7 @@ class ExperimentTracker:
             res = exp['results']
             name = res.get('experiment_name', 'Unknown')[:35]
             wer = f"{res.get('best_val_wer', 999):.4f}"
-            cer = f"{res.get('final_val_cer', 999):.4f}"
+            cer = f"{res.get('best_val_cer', res.get('final_val_cer', 999)):.4f}"
             time_m = f"{res.get('training_time_seconds', 0)/60:.1f}"
             summary += f"{exp_id:<4} {name:<35} {wer:<10} {cer:<10} {time_m:<10}\n"
         
@@ -117,7 +117,7 @@ class ExperimentTracker:
             # Results
             summary += "  Results:\n"
             summary += f"    best_val_wer:    {res.get('best_val_wer', 'N/A')}\n"
-            summary += f"    final_val_cer:   {res.get('final_val_cer', 'N/A')}\n"
+            summary += f"    best_val_cer:    {res.get('best_val_cer', res.get('final_val_cer', 'N/A'))}\n"
             summary += f"    training_time:   {res.get('training_time_seconds', 0)/60:.1f} min\n"
             summary += "\n"
         
@@ -254,11 +254,9 @@ class ExperimentRunner:
             # Use Greedy Decoder for validation speed
             decoder = GreedyDecoder(model, vocab, max_len=current_config.max_decode_len, device=current_config.device)
             
-            val_loss, val_cer, predictions, references = validate_with_metrics(
+            val_loss, val_cer, val_wer, predictions, references = validate_with_metrics(
                 model, val_loader, decoder, vocab, current_config.device, encoder_type
             )
-            
-            val_wer = jiwer.wer(references, predictions)
             val_cers.append(val_cer)
             val_wers.append(val_wer)
             
@@ -286,7 +284,8 @@ class ExperimentRunner:
             "val_cers": val_cers,
             "val_wers": val_wers,
             "best_val_wer": best_val_wer,
-            "final_val_cer": val_cers[-1],
+            "best_val_cer": min(val_cers) if val_cers else float('inf'),
+            "final_val_cer": val_cers[-1] if val_cers else float('inf'),
             "training_time_seconds": training_time
         }
         
