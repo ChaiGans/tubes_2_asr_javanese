@@ -19,13 +19,9 @@ def train_one_epoch(
     device: str,
     epoch: int,
     grad_clip_norm: float = 5.0,
-    encoder_type: str = "pyramidal"
 ) -> float:
     """
     Train for one epoch.
-    
-    Args:
-        encoder_type: "pyramidal" or "standard" (affects encoder length calculation)
     
     Returns:
         Average loss for the epoch
@@ -36,21 +32,15 @@ def train_one_epoch(
     
     pbar = tqdm(dataloader, desc=f"Epoch {epoch} [Train]")
     for batch in pbar:
-        # Move to device
         features = batch['features'].to(device)
         feature_lengths = batch['feature_lengths'].to(device)
         targets = batch['targets'].to(device)
         target_lengths = batch['target_lengths'].to(device)
         
-        # Standard FP32 training
-        attention_logits, ctc_logits = model(features, feature_lengths, targets, teacher_forcing_ratio=1.0)
+        tf_ratio = max(0.5, 1.0 - (epoch * 0.01))
         
-        # Compute encoder lengths based on encoder type
-        # Pyramidal: 2 levels of 2x reduction = 4x total reduction
-        # Standard: no reduction
-        encoder_lengths = feature_lengths // 4 if encoder_type == "pyramidal" else feature_lengths
+        attention_logits, ctc_logits, encoder_lengths = model(features, feature_lengths, targets, teacher_forcing_ratio=tf_ratio)
         
-        # Compute loss
         loss = model.compute_loss(
             attention_logits=attention_logits,
             targets=targets,
@@ -86,7 +76,6 @@ def validate_with_metrics(
     decoder,
     vocab,
     device: str,
-    encoder_type: str = "pyramidal"
 ) -> tuple:
     """
     Validate the model and return predictions/references for WER calculation.
@@ -97,7 +86,6 @@ def validate_with_metrics(
         decoder: Decoder instance (GreedyDecoder)
         vocab: Vocabulary instance
         device: Device string
-        encoder_type: "pyramidal" or "standard" (affects encoder length calculation)
     
     Returns:
         (average_loss, average_cer, average_wer, predictions, references)
@@ -118,11 +106,10 @@ def validate_with_metrics(
         transcripts = batch['transcripts']
         
         # Forward pass (NO teacher forcing during validation!)
-        attention_logits, ctc_logits = model(features, feature_lengths, targets, teacher_forcing_ratio=0.0)
+        # model.forward returns (attention_logits, ctc_logits, encoder_lengths)
+        attention_logits, ctc_logits, encoder_lengths = model(features, feature_lengths, targets, teacher_forcing_ratio=0.0)
         
-        # Determine encoder length reduction
-        encoder_lengths = feature_lengths // 4 if encoder_type == "pyramidal" else feature_lengths
-        
+        # Compute loss using correct encoder_lengths from encoder
         loss = model.compute_loss(
             attention_logits=attention_logits,
             targets=targets,

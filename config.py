@@ -25,6 +25,7 @@ class Config:
     input_dim: int = 80  # Log-mel features
     encoder_hidden_size: int = 128
     encoder_num_layers: int = 3
+    pyramid_levels: int = 2  # Number of layers with time reduction in pyramidal encoder
     decoder_dim: int = 256
     attention_dim: int = 128
     embedding_dim: int = 64
