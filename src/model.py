@@ -229,7 +229,8 @@ class Seq2SeqASR(nn.Module):
         use_ctc: bool = False,
         ctc_weight: float = 0.3,
         encoder_type: str = "pyramidal", # "pyramidal" or "standard"
-        decoder_type: str = "lstm"       # "lstm" or "gru"
+        decoder_type: str = "lstm",      # "lstm" or "gru"
+        pyramid_levels: int = 2          # Number of pyramid reduction layers
     ):
         super().__init__()
         self.use_ctc = use_ctc
@@ -239,7 +240,7 @@ class Seq2SeqASR(nn.Module):
         # Encoder
         if encoder_type == "pyramidal":
             self.encoder = PyramidalBiLSTMEncoder(
-                input_dim, encoder_hidden_size, encoder_num_layers, dropout
+                input_dim, encoder_hidden_size, encoder_num_layers, dropout, pyramid_levels
             )
         else:
             self.encoder = StandardBiLSTMEncoder(
