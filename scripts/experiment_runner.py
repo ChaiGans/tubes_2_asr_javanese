@@ -18,9 +18,9 @@ from src.model import Seq2SeqASR
 from src.dataset import JavaneseASRDataset, collate_fn  
 from src.vocab import Vocabulary
 from src.features import LogMelFeatureExtractor
-from src.decoder import GreedyDecoder, BeamSearchDecoder
+from src.decoder import GreedyDecoder
 from src.utils import set_seed, count_parameters, read_transcript
-from scripts.train import train_one_epoch, validate
+from scripts.train import train_one_epoch, validate_with_metrics
 
 from src.data_split import create_speaker_disjoint_split, load_split_info
 from pathlib import Path as SplitPath
@@ -254,7 +254,7 @@ class ExperimentRunner:
             # Use Greedy Decoder for validation speed
             decoder = GreedyDecoder(model, vocab, max_len=current_config.max_decode_len, device=current_config.device)
             
-            val_loss, val_cer, predictions, references = self.validate_with_metrics(
+            val_loss, val_cer, predictions, references = validate_with_metrics(
                 model, val_loader, decoder, vocab, current_config.device, encoder_type
             )
             
@@ -292,45 +292,6 @@ class ExperimentRunner:
         
         self.tracker.save_experiment(config_overrides, results)
         return results
-
-    def validate_with_metrics(self, model, dataloader, decoder, vocab, device, encoder_type):
-        model.eval()
-        total_loss = 0
-        all_preds = []
-        all_refs = []
-        
-        with torch.no_grad():
-            for batch in dataloader:
-                features = batch['features'].to(device)
-                feature_lengths = batch['feature_lengths'].to(device)
-                targets = batch['targets'].to(device)
-                target_lengths = batch['target_lengths'].to(device)
-                
-                attention_logits, ctc_logits = model(features, feature_lengths, targets, target_lengths)
-                
-                # Determine encoder length reduction
-                enc_len = feature_lengths // 4 if encoder_type == "pyramidal" else feature_lengths
-                
-                loss = model.compute_loss(
-                    attention_logits, targets, target_lengths, ctc_logits, enc_len, vocab.pad_idx, vocab.blank_idx
-                )
-                total_loss += loss.item()
-                
-                # Decode
-                decoded_indices, _ = decoder.decode_batch(
-                    model.encoder(features, feature_lengths)[0], enc_len
-                )
-                
-                for i in range(len(targets)):
-                    pred = vocab.decode(decoded_indices[i], remove_special=True)
-                    ref = vocab.decode(targets[i].tolist(), remove_special=True)
-                    all_preds.append(pred)
-                    all_refs.append(ref)
-        
-        avg_loss = total_loss / len(dataloader)
-        cer = jiwer.cer(all_refs, all_preds)
-        
-        return avg_loss, cer, all_preds, all_refs
 
 
 def load_experiments_from_json(json_path: str) -> List[Dict[str, Any]]:

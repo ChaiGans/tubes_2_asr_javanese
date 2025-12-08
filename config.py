@@ -43,19 +43,9 @@ class Config:
     # Augmentation
     apply_cmvn: bool = True
     apply_spec_augment: bool = True
-    speed_perturb: bool = False  # Set to True to enable speed perturbation
-    
-    # Validation
-    val_split: float = 0.1  # 10% for validation
-    val_every_n_steps: int = 500
-    
-    # Checkpointing
-    checkpoint_dir: str = "checkpoints"
-    save_every_n_epochs: int = 1
     
     # Decoding
     max_decode_len: int = 200
-    beam_size: int = 5
     
     # Device - auto-detect CUDA
     device: str = "cuda" if __import__('torch').cuda.is_available() else "cpu"
@@ -63,15 +53,11 @@ class Config:
     # Random seed
     seed: int = 42
     
-    # GPU Optimization Parameters
-    num_workers: int = 6  # Parallel data loading
-    pin_memory: bool = True  # Faster CPU→GPU transfers
-    prefetch_factor: int = 2  # Prefetch batches ahead
-    persistent_workers: bool = True  # Reuse worker processes
-
+    # Model type configuration
     token_type: str = "char"
     encoder_type: str = "pyramidal"
     decoder_type: str = "lstm"
+
 
 if __name__ == "__main__":
     cfg = Config()

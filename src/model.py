@@ -177,7 +177,7 @@ class DecoderWithAttention(nn.Module):
         context, attn_weights = self.attention(hidden_state, encoder_outputs, prev_attn, mask)
         
         logits = self.output_projection(torch.cat([hidden_state, context], dim=-1))
-        
+                
         return logits, context, new_state, attn_weights
 
     def forward(self, encoder_outputs, encoder_lengths, targets, teacher_forcing_ratio=1.0):
@@ -204,8 +204,7 @@ class DecoderWithAttention(nn.Module):
                 prev_token, prev_context, state, encoder_outputs, prev_attn, mask
             )
             outputs.append(logits.unsqueeze(1))
-            
-            if teacher_forcing_ratio >= 1.0 or torch.rand(1).item() < teacher_forcing_ratio:
+            if torch.rand(1).item() < teacher_forcing_ratio:
                 prev_token = targets[:, t + 1]
             else:
                 prev_token = logits.argmax(dim=-1)
@@ -261,9 +260,9 @@ class Seq2SeqASR(nn.Module):
         else:
             self.ctc_head = None
             
-    def forward(self, features, feature_lengths, targets, target_lengths):
+    def forward(self, features, feature_lengths, targets, teacher_forcing_ratio=1.0):
         encoder_outputs, encoder_lengths = self.encoder(features, feature_lengths)
-        attention_logits = self.decoder(encoder_outputs, encoder_lengths, targets)
+        attention_logits = self.decoder(encoder_outputs, encoder_lengths, targets, teacher_forcing_ratio)
         
         ctc_logits = None
         if self.use_ctc:

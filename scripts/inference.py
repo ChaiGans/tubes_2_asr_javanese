@@ -10,7 +10,7 @@ from pathlib import Path
 from src.model import Seq2SeqASR
 from src.vocab import Vocabulary
 from src.features import LogMelFeatureExtractor, load_audio, CMVN
-from src.decoder import GreedyDecoder, BeamSearchDecoder
+from src.decoder import GreedyDecoder
 from src.utils import load_checkpoint
 from config import Config
 
@@ -31,7 +31,7 @@ def transcribe_audio(
         model: Trained ASR model
         vocab: Vocabulary
         feature_extractor: Feature extractor
-        decoder: Decoder (greedy or beam search)
+        decoder: Decoder (greedy)
         device: Device to run on
     
     Returns:
@@ -66,8 +66,6 @@ def main():
     parser.add_argument('--audio', type=str, required=True, help="Path to audio file or directory")
     parser.add_argument('--checkpoint', type=str, default="checkpoints/best_model.pt", help="Path to model checkpoint")
     parser.add_argument('--vocab', type=str, default="vocab.json", help="Path to vocabulary file")
-    parser.add_argument('--decoder', type=str, default="greedy", choices=['greedy', 'beam'], help="Decoder type")
-    parser.add_argument('--beam_size', type=int, default=5, help="Beam size for beam search")
     parser.add_argument('--device', type=str, default="cuda", help="Device (cuda or cpu)")
     
     args = parser.parse_args()
@@ -112,15 +110,9 @@ def main():
         hop_length_ms=cfg.hop_length_ms
     )
     
-    # Create decoder
-    if args.decoder == 'greedy':
-        decoder = GreedyDecoder(model, vocab, max_len=cfg.max_decode_len, device=device)
-        print("Using greedy decoder")
-    else:
-        decoder = BeamSearchDecoder(model, vocab, beam_size=args.beam_size, 
-                                    max_len=cfg.max_decode_len, device=device)
-        print(f"Using beam search decoder (beam size={args.beam_size})")
-    
+    decoder = GreedyDecoder(model, vocab, max_len=cfg.max_decode_len, device=device)
+    print("Using greedy decoder")
+
     # Process audio file(s)
     audio_path = Path(args.audio)
     

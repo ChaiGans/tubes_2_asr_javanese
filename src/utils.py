@@ -25,46 +25,6 @@ def count_parameters(model: nn.Module) -> int:
     return sum(p.numel() for p in model.parameters() if p.requires_grad)
 
 
-def save_checkpoint(
-    model: nn.Module,
-    optimizer: torch.optim.Optimizer,
-    epoch: int,
-    step: int,
-    loss: float,
-    checkpoint_dir: str,
-    filename: str = None
-):
-    """
-    Save model checkpoint.
-    
-    Args:
-        model: Model to save
-        optimizer: Optimizer state
-        epoch: Current epoch
-        step: Current training step
-        loss: Current loss value
-        checkpoint_dir: Directory to save checkpoint
-        filename: Optional custom filename
-    """
-    checkpoint_dir = Path(checkpoint_dir)
-    checkpoint_dir.mkdir(parents=True, exist_ok=True)
-    
-    if filename is None:
-        filename = f"checkpoint_epoch{epoch}_step{step}.pt"
-    
-    checkpoint_path = checkpoint_dir / filename
-    
-    torch.save({
-        'epoch': epoch,
-        'step': step,
-        'model_state_dict': model.state_dict(),
-        'optimizer_state_dict': optimizer.state_dict(),
-        'loss': loss,
-    }, checkpoint_path)
-    
-    print(f"Saved checkpoint to {checkpoint_path}")
-
-
 def load_checkpoint(
     checkpoint_path: str,
     model: nn.Module,
@@ -102,27 +62,8 @@ def load_checkpoint(
     }
 
 
-def create_mask(lengths: torch.Tensor, max_len: int = None) -> torch.Tensor:
-    """
-    Create mask from lengths.
-    
-    Args:
-        lengths: [batch] - sequence lengths
-        max_len: Maximum length (if None, use max of lengths)
-    
-    Returns:
-        mask: [batch, max_len] - 1 for valid positions, 0 for padding
-    """
-    batch_size = lengths.size(0)
-    if max_len is None:
-        max_len = lengths.max().item()
-    
-    mask = torch.arange(max_len, device=lengths.device).unsqueeze(0).expand(batch_size, -1)
-    mask = (mask < lengths.unsqueeze(1)).long()
-    
-    return mask
-
 def read_transcript(transcript_file: str) -> List[str]:
+    """Read transcripts from CSV file, skipping header."""
     transcripts = []
     with open(transcript_file, 'r', encoding='utf-8') as f:
         count = 0
@@ -133,47 +74,9 @@ def read_transcript(transcript_file: str) -> List[str]:
             line = line.strip()
             if not line:
                 continue
-            # Split by tab
+            # Split by comma (CSV format)
             parts = line.split(',')
             if len(parts) >= 2:
                 transcript = parts[1].strip()
                 transcripts.append(transcript)
     return transcripts
-
-
-if __name__ == "__main__":
-    import tempfile
-    
-    # Test utilities
-    print("Testing utilities...")
-    
-    # Test seed setting
-    set_seed(42)
-    
-    # Test parameter counting
-    dummy_model = nn.Linear(10, 5)
-    num_params = count_parameters(dummy_model)
-    print(f"Dummy model parameters: {num_params}")
-    
-    # Test checkpoint save/load
-    with tempfile.TemporaryDirectory() as tmpdir:
-        optimizer = torch.optim.Adam(dummy_model.parameters())
-        
-        # Save
-        save_checkpoint(dummy_model, optimizer, epoch=1, step=100, loss=0.5, 
-                       checkpoint_dir=tmpdir, filename="test.pt")
-        
-        # Load
-        new_model = nn.Linear(10, 5)
-        new_optimizer = torch.optim.Adam(new_model.parameters())
-        info = load_checkpoint(Path(tmpdir) / "test.pt", new_model, new_optimizer)
-        
-        print(f"Loaded info: {info}")
-    
-    # Test mask creation
-    lengths = torch.tensor([5, 3, 7])
-    mask = create_mask(lengths, max_len=10)
-    print(f"Mask shape: {mask.shape}")
-    print(f"Mask:\n{mask}")
-    
-    print("Utility tests passed!")
