@@ -282,29 +282,10 @@ class Seq2SeqASR(nn.Module):
         
         # CTC Loss
         if self.use_ctc and ctc_logits is not None:
-            ctc_loss = F.ctc_loss(
-                ctc_logits.permute(1, 0, 2),
-                targets, # This needs careful handling of <sos>/<eos> removal if not done elsewhere
-                encoder_lengths,
-                target_lengths, # This usually includes <sos>/<eos>, need to adjust?
-                blank=blank_idx,
-                zero_infinity=True
-            )
-            # Note: In previous code, we manually removed <sos>/<eos> for CTC targets.
-            # We should probably keep that logic in the training loop or here.
-            # For simplicity, let's assume the caller handles target preparation or we do it here.
-            # Let's stick to the previous implementation's logic for safety:
-            
-            # Re-implementing the safe CTC target extraction from previous version:
             batch_size = targets.size(0)
             ctc_targets = []
             ctc_target_lens = []
             for i in range(batch_size):
-                # Remove <sos> (first) and <eos> (last valid)
-                # targets is [batch, max_len]
-                # valid length is target_lengths[i]
-                # valid sequence is targets[i, :target_lengths[i]]
-                # <sos> is at 0, <eos> is at target_lengths[i]-1
                 seq = targets[i, 1:target_lengths[i]-1]
                 ctc_targets.append(seq)
                 ctc_target_lens.append(len(seq))
