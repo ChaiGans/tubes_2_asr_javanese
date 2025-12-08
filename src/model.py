@@ -267,8 +267,9 @@ class Seq2SeqASR(nn.Module):
         ctc_logits = None
         if self.use_ctc:
             ctc_logits = F.log_softmax(self.ctc_head(encoder_outputs), dim=-1)
-            
-        return attention_logits, ctc_logits
+        
+        # Return encoder_lengths for CTC loss computation
+        return attention_logits, ctc_logits, encoder_lengths
 
     def compute_loss(self, attention_logits, targets, target_lengths, ctc_logits=None, encoder_lengths=None, pad_idx=0, blank_idx=4):
         # Attention Loss
