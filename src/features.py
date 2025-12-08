@@ -202,26 +202,6 @@ def load_audio(filepath, target_sr=16000):
 
     return waveform, sr
 
-def speed_perturb(waveform: torch.Tensor, speed_factor: float) -> torch.Tensor:
-    """
-    Apply speed perturbation to waveform.
-    
-    Args:
-        waveform: [time] - audio waveform
-        speed_factor: Speed multiplier (0.9 = slower, 1.1 = faster)
-    
-    Returns:
-        perturbed_waveform: [new_time]
-    """
-    target_len = int(waveform.size(0) / speed_factor)
-    return torch.nn.functional.interpolate(
-        waveform.unsqueeze(0).unsqueeze(0),
-        size=target_len,
-        mode='linear',
-        align_corners=False
-    ).squeeze()
-
-
 if __name__ == "__main__":
     print("Testing feature extraction...")
     

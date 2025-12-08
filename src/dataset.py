@@ -10,7 +10,7 @@ from pathlib import Path
 from typing import List, Tuple, Optional, Dict
 import random
 
-from src.features import LogMelFeatureExtractor, CMVN, SpecAugment, load_audio, speed_perturb
+from src.features import LogMelFeatureExtractor, CMVN, SpecAugment, load_audio
 from src.vocab import Vocabulary
 from src.utils import read_transcript
 
@@ -29,7 +29,6 @@ class JavaneseASRDataset(Dataset):
         feature_extractor: LogMelFeatureExtractor instance
         apply_cmvn: Whether to apply CMVN normalization
         apply_spec_augment: Whether to apply SpecAugment (training only)
-        speed_perturb: Whether to apply speed perturbation (training only)
     """
     def __init__(
         self,
@@ -39,14 +38,12 @@ class JavaneseASRDataset(Dataset):
         feature_extractor: Optional[LogMelFeatureExtractor] = None,
         apply_cmvn: bool = True,
         apply_spec_augment: bool = False,
-        speed_perturb: bool = False,
         utt_id_filter: Optional[List[str]] = None
     ):
         self.audio_dir = Path(audio_dir)
         self.vocab = vocab
         self.apply_cmvn = apply_cmvn
         self.apply_spec_augment = apply_spec_augment
-        self.speed_perturb = speed_perturb
         self.utt_id_filter = set(utt_id_filter) if utt_id_filter else None
         
         # Feature extraction
@@ -153,15 +150,7 @@ class JavaneseASRDataset(Dataset):
                 
                 # Load audio
                 waveform, sr = load_audio(item['audio_path'], target_sr=16000)
-                
-                # Speed perturbation (training augmentation)
-                if self.speed_perturb and random.random() < 0.5:
-                    speed_factor = random.choice([0.9, 1.1])
-                    try:
-                        waveform = speed_perturb(waveform, speed_factor)
-                    except:
-                        pass  # Skip if speed perturb fails
-                
+                                
                 # Extract features
                 features = self.feature_extractor(waveform)  # [time, n_mels]
                 
@@ -271,7 +260,6 @@ if __name__ == "__main__":
         vocab=vocab,
         apply_cmvn=True,
         apply_spec_augment=True,
-        speed_perturb=True
     )
     
     features, target, transcript, utt_id = dataset[1]
