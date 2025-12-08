@@ -17,8 +17,6 @@ from config import Config
 
 def transcribe_audio(
     audio_path: str,
-    model: Seq2SeqASR,
-    vocab: Vocabulary,
     feature_extractor: LogMelFeatureExtractor,
     decoder: GreedyDecoder,
     device: str = 'cpu'
