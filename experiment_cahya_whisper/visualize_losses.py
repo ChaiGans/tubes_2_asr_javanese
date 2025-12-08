@@ -4,8 +4,6 @@ import matplotlib.pyplot as plt
 import glob
 import os
 
-# pattern to extract metrics
-# Matches format like: "Epoch 1/10 | Train loss: 6.6481 | Val loss: 3.7092"
 pattern = re.compile(r"Epoch\s+(\d+)/\d+\s+\|\s+Train loss:\s+([\d.]+)\s+\|\s+Val loss:\s+([\d.]+)")
 
 def parse_notebook(filepath):
@@ -19,12 +17,10 @@ def parse_notebook(filepath):
             for output in cell['outputs']:
                 if output.get('output_type') == 'stream' and output.get('name') == 'stdout':
                     text_lines = output.get('text', [])
-                    # text can be a list of strings or a single string
                     if isinstance(text_lines, str):
                         text_lines = [text_lines]
 
                     for line in text_lines:
-                        # Handle case where line itself contains multiple lines
                         for subline in line.split('\n'):
                             match = pattern.search(subline)
                             if match:
@@ -33,10 +29,8 @@ def parse_notebook(filepath):
                                 val_loss = float(match.group(3))
                                 data.append((epoch, train_loss, val_loss))
 
-    # Sort by epoch just in case, though usually sequential
     data.sort(key=lambda x: x[0])
 
-    # Unzip
     if not data:
         return [], [], []
 
