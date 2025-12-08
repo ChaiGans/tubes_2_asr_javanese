@@ -1,0 +1,20 @@
+{
+    "name": "Scratch Model Expansion v5",
+    "description": "Additional variants exploring encoder type, CTC, capacity, and regularization tweaks.",
+    "created_at": "2025-12-06",
+    "experiments": [
+        {
+            "name": "V5-02: Char + CTC Joint",
+            "description": "Character vocab with joint CTC-attention for alignment help.",
+            "config": {
+                "token_type": "char",
+                "encoder_type": "pyramidal",
+                "decoder_type": "lstm",
+                "learning_rate": 5e-4,
+                "num_epochs": 120,
+                "use_ctc": true,
+                "ctc_weight": 0.3
+            }
+        }
+    ]
+}
